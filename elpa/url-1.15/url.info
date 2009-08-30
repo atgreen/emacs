@@ -1,0 +1,1252 @@
+This is url.info, produced by makeinfo version 4.8 from url.txi.
+
+INFO-DIR-SECTION World Wide Web
+INFO-DIR-SECTION GNU Emacs Lisp
+START-INFO-DIR-ENTRY
+* URL: (url).                 URL loading package.
+END-INFO-DIR-ENTRY
+
+   This file documents the URL loading package.
+
+   Copyright (C) 1993, 1994, 1995, 1996 William M. Perry Copyright (C)
+1996, 1997, 1998, 1999, 2002 Free Software Foundation
+
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "GNU GENERAL PUBLIC LICENSE".  A copy of the
+license is included in the section entitled "GNU Free Documentation
+License."
+
+
+File: url.info,  Node: Top,  Next: Getting Started,  Up: (dir)
+
+URL
+***
+
+* Menu:
+
+* Getting Started::             Preparing your program to use URLs.
+* Retrieving URLs::             How to use this package to retrieve a URL.
+* Supported URL Types::         Descriptions of URL types currently supported.
+* Defining New URLs::           How to define a URL loader for a new protocol.
+* General Facilities::          URLs can be cached, accessed via a gateway
+                                and tracked in a history list.
+* Customization::               Variables you can alter.
+* Function Index::
+* Variable Index::
+* Concept Index::
+
+
+File: url.info,  Node: Getting Started,  Next: Retrieving URLs,  Prev: Top,  Up: Top
+
+1 Getting Started
+*****************
+
+"Uniform Resource Locators" (URLs) are a specific form of "Uniform
+Resource Identifiers" (URI) described in RFC 2396 which updates RFC
+1738 and RFC 1808.  RFC 2016 defines uniform resource agents.
+
+   URIs have the form SCHEME:SCHEME-SPECIFIC-PART, where the SCHEMEs
+supported by this library are described below.  *Note Supported URL
+Types::.
+
+   FTP NFS, HTTP, HTTPS, `rlogin', `telnet', tn3270, IRC and gopher
+URLs all have the form
+
+     SCHEME://[USERINFO@]HOSTNAME[:PORT][/PATH]
+   where `[' and `]' delimit optional parts.  USERINFO sometimes takes
+the form USERNAME:PASSWORD but you should beware of the security risks
+of sending cleartext passwords.  HOSTNAME may be a domain name or a
+dotted decimal address.  If the `:PORT' is omitted then the library will
+use the `well known' port for that service when accessing URLs.  With
+the possible exception of `telnet', it is rare for ports to be
+specified, and it is possible using a non-standard port may have
+undesired consequences if a different service is listening on that port
+(e.g. an HTTP URL specifying the SMTP port can cause mail to be
+sent).The meaning of the PATH component depends on the service.
+
+   The library depends on MIME support provided by the `mm-' packages
+from Gnus 5.8 or later.  *Note The MIME library: (emacs-mime)Top.
+
+* Menu:
+
+* Configuration::
+* Parsed URLs::                 URLs are parsed into vector structures.
+
+
+File: url.info,  Node: Configuration,  Next: Parsed URLs,  Up: Getting Started
+
+1.1 Configuration
+=================
+
+ -- Variable: url-configuration-directory
+     The directory in which URL configuration files, the cache etc.,
+     reside.  Default `~/.url'.
+
+
+File: url.info,  Node: Parsed URLs,  Prev: Configuration,  Up: Getting Started
+
+1.2 Parsed URLs
+===============
+
+The library functions typically operate on "parsed" versions of URLs.
+These are actually vectors of the form:
+
+     [TYPE USER PASSWORD HOST PORT FILE TARGET ATTRIBUTES FULL]
+
+where
+TYPE
+     is the type of the URL scheme, e.g. `http'
+
+USER
+     is the username associated with it, or `nil';
+
+PASSWORD
+     is the user password associated with it, or `nil';
+
+HOST
+     is the host name associated with it, or `nil';
+
+PORT
+     is the port number associated with it, or `nil';
+
+FILE
+     is the `file' part of it, or `nil'.  This doesn't necessarily
+     actually refer to a file;
+
+TARGET
+     is the target part, or `nil';
+
+ATTRIBUTES
+     is the attributes associated with it, or `nil';
+
+FULL
+     is `t' for a fully-specified URL, with a host part indicated by
+     `//' after the scheme part.
+
+   These attributes have accessors named `url-PART', where PART is the
+name of one of the elements above, e.g.  `url-host'.  Similarly, there
+are setters of the form `url-set-PART'.
+
+   There are functions for parsing and unparsing between the string and
+vector forms.
+
+ -- Function: url-generic-parse-url url
+     Return a parsed version of the string URL.
+
+ -- Function: url-recreate-url url
+     Recreates a URL string from the parsed URL.
+
+
+File: url.info,  Node: Retrieving URLs,  Next: Supported URL Types,  Prev: Getting Started,  Up: Top
+
+2 Retrieving URLs
+*****************
+
+ -- Function: url-retrieve-synchronously url
+     Retrieve URL synchronously and return a buffer containing the
+     data.  URL is either a string or a parsed URL structure.  Return
+     NIL if there are no data associated with it (the case for dired,
+     info, or mailto URLs that need no further processing).
+
+ -- Function: url-retrieve url callback &optional cbargs
+     Retrieve URL asynchronously and call CALLBACK with args CBARGS
+     when finished.  The callback is called when the object has been
+     completely retrieved, with the current buffer containing the
+     object and any MIME headers associated with it.  URL is either a
+     string or a parsed URL structure.  Returns the buffer URL will
+     load into, or NIL if the process has already completed.
+
+
+File: url.info,  Node: Supported URL Types,  Next: Defining New URLs,  Prev: Retrieving URLs,  Up: Top
+
+3 Supported URL Types
+*********************
+
+* Menu:
+
+* http/https::                  Hypertext Transfer Protocol.
+* file/ftp::                    Local files and FTP archives.
+* info::                        Emacs `Info' pages.
+* mailto::                      Sending email.
+* news/nntp/snews::             Usenet news.
+* rlogin/telnet/tn3270::        Remote host connectivity.
+* irc::                         Internet Relay Chat.
+* data::                        Embedded data URLs.
+* nfs::                         Networked File System
+* cid::                         Content-ID.
+* about::
+* ldap::                        Lightweight Directory Access Protocol
+* imap::                        IMAP mailboxes.
+* man::                         Unix man pages.
+
+
+File: url.info,  Node: http/https,  Next: file/ftp,  Up: Supported URL Types
+
+3.1 `http' and `https'
+======================
+
+The scheme `http' is Hypertext Transfer Protocol.  The library supports
+version 1.1, specified in RFC 2616.  (This supersedes 1.0, defined in
+RFC 1945) HTTP URLs have the following form, where most of the parts
+are optional:
+     http://USER:PASSWORDHOST:PORT/PATH?SEARCHPART#FRAGMENT
+
+   The scheme `https' is a secure version of `http', with transmission
+via SSL.  It is defined in RFC 2069.  Its default port is 443.  This
+scheme depends on SSL support in Emacs via the `ssl.el' library and is
+actually implemented by forcing the `ssl' gateway method to be used.
+*Note Gateways in general::.
+
+ -- User Option: url-honor-refresh-requests
+     This controls honouring of HTTP `Refresh' headers by which servers
+     can direct clients to reload documents from the same URL or a or
+     different one.  `nil' means they will not be honoured, `t' (the
+     default) means they will always be honoured, and otherwise the
+     user will be asked on each request.
+
+* Menu:
+
+* Cookies::
+* HTTP language/coding::
+* HTTP URL Options::
+* Dealing with HTTP documents::
+
+
+File: url.info,  Node: Cookies,  Next: HTTP language/coding,  Up: http/https
+
+3.1.1 Cookies
+-------------
+
+ -- User Option: url-cookie-file
+     The file in which cookies are stored, defaulting to `cookies' in
+     the directory specified by `url-configuration-directory'.
+
+ -- User Option: url-cookie-confirmation
+     Specifies whether confirmation is require to accept cookies.
+
+ -- User Option: url-cookie-multiple-line
+     Specifies whether to put all cookies for the server on one line in
+     the HTTP request to satisfy broken servers like
+     `http://www.hotmail.com'.
+
+ -- User Option: url-cookie-trusted-urls
+     A list of regular expressions matching URLs from which to accept
+     cookies always.
+
+ -- User Option: url-cookie-untrusted-urls
+     A list of regular expressions matching URLs from which to reject
+     cookies always.
+
+ -- User Option: url-cookie-save-interval
+     The number of seconds between automatic saves of cookies to disk.
+     Default is one hour.
+
+
+File: url.info,  Node: HTTP language/coding,  Next: HTTP URL Options,  Prev: Cookies,  Up: http/https
+
+3.1.2 Language and Encoding Preferences
+---------------------------------------
+
+HTTP allows clients to express preferences for the language and
+encoding of documents which servers may honour.
+
+ -- User Option: url-mime-charset-string
+     This variable specifies a preference for character sets when
+     documents can be served in more than one encoding.
+
+     HTTP allows specifying a list of MIME charsets which indicate your
+     preferred character set encodings, e.g. Latin-9 or Big5, and these
+     can be weighted.  In Emacs 21 this list is generated automatically
+     from the list of defined coding systems which have associated MIME
+     types.  These are sorted by coding priority.  *Note Recognizing
+     Coding Systems: (emacs)Recognize Coding.
+
+ -- User Option: url-mime-language-string
+     A string specifying the preferred language when servers can serve
+     files in several languages.  Use RFC 1766 abbreviations, e.g.
+     `en' for English, `de' for German.  It can be a comma-separated
+     list in descending order of preference.  The ordering can be made
+     explicit using `q' factors defined by HTTP, e.g.
+     `de, en-gb;q=0.8, en;q=0.7'.  It can be `*' to get the first
+     available language (as opposed to the default).
+
+
+File: url.info,  Node: HTTP URL Options,  Next: Dealing with HTTP documents,  Prev: HTTP language/coding,  Up: http/https
+
+3.1.3 HTTP URL Options
+----------------------
+
+HTTP supports an `OPTIONS' method describing things supported by the
+URL.
+
+ -- Function: url-http-options url
+     Returns a property list describing options available for URL.  The
+     property list members are:
+
+    `methods'
+          A list of symbols specifying what HTTP methods the resource
+          supports.
+
+    `dav'
+          A list of numbers specifying what DAV protocol/schema
+          versions are supported.
+
+    `dasl'
+          A list of supported DASL search types supported (string form).
+
+    `ranges'
+          A list of the units available for use in partial document
+          fetches.
+
+    `p3p'
+          The "Platform For Privacy Protection" description for the
+          resource.  Currently this is just the raw header contents.
+
+
+
+File: url.info,  Node: Dealing with HTTP documents,  Prev: HTTP URL Options,  Up: http/https
+
+3.1.4 Dealing with HTTP documents
+---------------------------------
+
+HTTP URLs are retrieved into a buffer containing the HTTP headers
+followed by the body.  Since the headers are quasi-MIME, they may be
+processed using the MIME library.  *Note The MIME library:
+(emacs-mime)Top.  The MIME library doesn't provide a clean function to
+do that, so the URL library does.
+
+ -- Function: url-decode-text-part handle &optional coding
+     This function decodes charset-encoded text in the current buffer.
+     In Emacs, the buffer is expected to be unibyte initially and is
+     set to multibyte after decoding.  HANDLE is the MIME handle of the
+     original part.  CODING is an explicit coding to use, overriding
+     what the MIME headers specify.  The coding system used for the
+     decoding is returned.
+
+     Note that this function doesn't deal with `http-equiv' charset
+     specifications in HTML `<meta>' elements.
+
+
+File: url.info,  Node: file/ftp,  Next: info,  Prev: http/https,  Up: Supported URL Types
+
+3.2 file and ftp
+================
+
+     ftp://USER:PASSWORD@HOST:PORT/FILE
+     file://USER:PASSWORD@HOST:PORT/FILE
+
+   These schemes are defined in RFC 1808.  `ftp:' and `file:' are
+synonomous in this library.  They allow reading arbitary files from
+hosts.  Either `ange-ftp' (Emacs) or `efs' (XEmacs) is used to retrieve
+them from remote hosts.  Local files are accessed directly.
+
+   Compressed files are handled, but support is hard-coded so that
+`jka-compr-compression-info-list' and so on have no affect.  Suffixes
+recognized are `.z', `.gz', `.Z' and `.bz2'.
+
+ -- User Option: url-directory-index-file
+     The filename to look for when indexing a directory, default
+     `"index.html"'.  If this file exists, and is readable, then it
+     will be viewed instead of using `dired' to view the directory.
+
+
+File: url.info,  Node: info,  Next: mailto,  Prev: file/ftp,  Up: Supported URL Types
+
+3.3 info
+========
+
+     info:FILE#NODE
+
+   Info URLs are not officially defined.  They invoke `Info-goto-node'
+with argument `(FILE)NODE'.  `#NODE' is optional, defaulting to `Top'.
+
+
+File: url.info,  Node: mailto,  Next: news/nntp/snews,  Prev: info,  Up: Supported URL Types
+
+3.4 mailto
+==========
+
+A mailto URL will send an email message to the address in the URL, for
+example `mailto:foo@bar.com' would compose a message to `foo@bar.com'.
+
+ -- User Option: url-mail-command
+     The function called whenever url needs to send mail.  This should
+     normally be left to default from MAIL-USER-AGENT.  *Note
+     Mail-Composition Methods: (emacs)Mail Methods.
+
+   An `X-Url-From' header field containing the URL of the document that
+contained the mailto URL is added if that URL is known.
+
+   RFC 2368 extends the definition of mailto URLs in RFC 1738.  The
+form of a mailto URL is
+     `mailto:MAILBOX[?HEADER=CONTENTS[&HEADER=CONTENTS]]'
+   where an arbitary number of HEADERs can be added.  If the HEADER is
+`body', then CONTENTS is put in the body otherwise a HEADER header
+field is created with CONTENTS as its contents.  Note that the URL
+library does not consider any headers `dangerous' so you should check
+them before sending the message.
+
+   Email messages are defined in RFC822.
+
+
+File: url.info,  Node: news/nntp/snews,  Next: rlogin/telnet/tn3270,  Prev: mailto,  Up: Supported URL Types
+
+3.5 `news', `nntp' and `snews'
+==============================
+
+The network news URL scheme take the following forms following RFC 1738
+except that for compatibility with other clients, host and port fields
+may be included in news URLs though they are properly only allowed for
+nntp an snews.
+
+`news:NEWSGROUP'
+     Retrieves a list of messages in NEWSGROUP;
+
+`news:MESSAGE-ID'
+     Retrieves the message with the given MESSAGE-ID;
+
+`news:*'
+     Retrieves a list of all available newsgroups;
+
+`nntp://HOST:PORT/NEWSGROUP'
+`nntp://HOST:PORT/MESSAGE-ID'
+`nntp://HOST:PORT/*'
+     Similar to the `news' versions.
+
+   `:PORT' is optional and defaults to :119.
+
+   `snews' is the same as `nntp' except that the default port is :563.  (It
+is tunnelled through SSL.)
+
+   An `nntp' URL is the same as a news URL, except that the URL may
+specify an article by its number.
+
+ -- User Option: url-news-server
+     This variable can be used to override the default news server.
+     Usually this will be set by the Gnus package, which is used to
+     fetch news.  It may be set from the conventional environment
+     variable `NNTPSERVER'.
+
+
+File: url.info,  Node: rlogin/telnet/tn3270,  Next: irc,  Prev: news/nntp/snews,  Up: Supported URL Types
+
+3.6 rlogin, telnet and tn3270
+=============================
+
+These URL schemes from RFC 1738 for logon via a terminal emulator have
+the form
+     telnet://USER:PASSWORD@HOST:PORT
+   but the `:PASSWORD' component is ignored.
+
+   To handle rlogin, telnet and tn3270 URLs, a `rlogin', `telnet' or
+`tn3270' (the program names and arguments are hardcoded) session is run
+in a `terminal-emulator' buffer.  Well-known ports are used if the URL
+does not specify a port.
+
+
+File: url.info,  Node: irc,  Next: data,  Prev: rlogin/telnet/tn3270,  Up: Supported URL Types
+
+3.7 irc
+=======
+
+"Internet Relay Chat" (IRC) is handled by handing off the IRC session
+to a function named in `url-irc-function'.
+
+ -- User Option: url-irc-function
+     A function to actually open an IRC connection.  This function must
+     take five arguments, HOST, PORT, CHANNEL, USER and PASSWORD.  The
+     CHANNEL argument specifies the channel to join immediately, this
+     can be `nil'.  By default this is `url-irc-zenirc'.
+
+ -- Function: url-irc-zenirc host port channel user password
+     Processes the arguments and lets `zenirc' handle the session.
+
+
+File: url.info,  Node: data,  Next: nfs,  Prev: irc,  Up: Supported URL Types
+
+3.8 data
+========
+
+     data:[MEDIA-TYPE][;BASE64],DATA
+
+   Data URLs contain MIME data in the URL itself.  They are defined in
+RFC 2397.
+
+   MEDIA-TYPE is a MIME `Content-Type' string, possibly including
+parameters.  It defaults to `text/plain;charset=US-ASCII'.  The
+`text/plain' can be omitted but the charset parameter supplied.  If
+`;base64' is present, the DATA are base64-encoded.
+
+
+File: url.info,  Node: nfs,  Next: cid,  Prev: data,  Up: Supported URL Types
+
+3.9 nfs
+=======
+
+     nfs://USER:PASSWORD@HOST:PORT/FILE
+
+   The `nfs:' scheme is defined in RFC 2224.  It is similar to `ftp:'
+except that it points to a file on a remote host that is handled by the
+automounter on the local host.
+
+ -- Variable: url-nfs-automounter-directory-spec
+   A string saying how to invoke the NFS automounter.  Certain `%'
+sequences are recognized:
+
+`%h'
+     The hostname of the NFS server;
+
+`%n'
+     The port number of the NFS server;
+
+`%u'
+     The username to use to authenticate;
+
+`%p'
+     The password to use to authenticate;
+
+`%f'
+     The filename on the remote server;
+
+`%%'
+     A literal `%'.
+
+   Each can be used any number of times.
+
+
+File: url.info,  Node: cid,  Next: about,  Prev: nfs,  Up: Supported URL Types
+
+3.10 cid
+========
+
+RFC 2111
+
+
+File: url.info,  Node: about,  Next: ldap,  Prev: cid,  Up: Supported URL Types
+
+3.11 about
+==========
+
+
+File: url.info,  Node: ldap,  Next: imap,  Prev: about,  Up: Supported URL Types
+
+3.12 ldap
+=========
+
+The LDAP scheme is defined in RFC 2255.
+
+
+File: url.info,  Node: imap,  Next: man,  Prev: ldap,  Up: Supported URL Types
+
+3.13 imap
+=========
+
+RFC 2192
+
+
+File: url.info,  Node: man,  Prev: imap,  Up: Supported URL Types
+
+3.14 man
+========
+
+     `man:PAGE-SPEC'
+
+   This is a non-standard scheme.  PAGE-SPEC is passed directly to the
+Lisp `man' function.
+
+
+File: url.info,  Node: Defining New URLs,  Next: General Facilities,  Prev: Supported URL Types,  Up: Top
+
+4 Defining New URLs
+*******************
+
+* Menu:
+
+* Naming conventions::
+* Required functions::
+* Optional functions::
+* Asynchronous fetching::
+* Supporting file-name-handlers::
+
+
+File: url.info,  Node: Naming conventions,  Next: Required functions,  Up: Defining New URLs
+
+4.1 Naming conventions
+======================
+
+
+File: url.info,  Node: Required functions,  Next: Optional functions,  Prev: Naming conventions,  Up: Defining New URLs
+
+4.2 Required functions
+======================
+
+
+File: url.info,  Node: Optional functions,  Next: Asynchronous fetching,  Prev: Required functions,  Up: Defining New URLs
+
+4.3 Optional functions
+======================
+
+
+File: url.info,  Node: Asynchronous fetching,  Next: Supporting file-name-handlers,  Prev: Optional functions,  Up: Defining New URLs
+
+4.4 Asynchronous fetching
+=========================
+
+
+File: url.info,  Node: Supporting file-name-handlers,  Prev: Asynchronous fetching,  Up: Defining New URLs
+
+4.5 Supporting file-name-handlers
+=================================
+
+
+File: url.info,  Node: General Facilities,  Next: Customization,  Prev: Defining New URLs,  Up: Top
+
+5 General Facilities
+********************
+
+* Menu:
+
+* Disk Caching::
+* Proxies::
+* Gateways in general::
+* History::
+
+
+File: url.info,  Node: Disk Caching,  Next: Proxies,  Up: General Facilities
+
+5.1 Disk Caching
+================
+
+The disk cache stores retrieved documents locally, whence they can be
+retrieved mode quickly.  When requesting a URL that is in the cache,
+the library checks to see if the page has changed since it was last
+retrieved from the remote machine.  If not, the local copy is used,
+saving the transmission over the network.  Currently the cache isn't
+cleared automatically.
+
+ -- User Option: url-automatic-caching
+     Setting this variable non-`nil' causes documents to be cached
+     automatically.
+
+ -- User Option: url-cache-directory
+     This variable specifies the directory to store the cache files.
+     It defaults to sub-directory `cache' of
+     `url-configuration-directory'.
+
+ -- User Option: url-cache-creation-function
+     The cache relies on a scheme for mapping URLs to files in the
+     cache.  This variable names a function which sets the type of
+     cache to use.  It takes a URL as argument and returns the absolute
+     file name of the corresponding cache file.  The two supplied
+     possibilities are `url-cache-create-filename-using-md5' and
+     `url-cache-create-filename-human-readable'.
+
+ -- Function: url-cache-create-filename-using-md5 url
+     Creates a cache file name from URL using MD5 hashing.  This is
+     creates entries with very few cache collisions and is fast if you
+     have the `md5' function as a primitive (Emacs 21 and XEmacs).
+          (url-cache-create-filename-using-md5 "http://www.example.com/foo/bar")
+            => "/home/fx/.url/cache/fx/http/com/example/www/b8a35774ad20db71c7c3409a5410e74f"
+
+ -- Function: url-cache-create-filename-human-readable url
+     Creates a cache file name from URL more obviously connected to URL
+     than for `url-cache-create-filename-using-md5', but more likely to
+     conflict with other files.
+          (url-cache-create-filename-human-readable "http://www.example.com/foo/bar")
+            => "/home/fx/.url/cache/fx/http/com/example/www/foo/bar"
+
+
+File: url.info,  Node: Proxies,  Next: Gateways in general,  Prev: Disk Caching,  Up: General Facilities
+
+5.2 Proxies and Gatewaying
+==========================
+
+Proxy servers are commonly used to provide gateways through firewalls
+or as caches serving some more-or-less local network.  Each protocol
+(HTTP, FTP, etc.) can have a different gateway server.  Proxying is
+conventionally configured commonly amongst different programs through
+environment variables of the form `PROTOCOL_proxy', where PROTOCOL is
+one of the supported network protocols (`http', `ftp' etc.).  The
+library recognizes such variables in either upper or lower case.  Their
+values are of one of the forms:
+   * `HOST:PORT'
+
+   * A full URL;
+
+   * Simply a host name.
+
+   The `NO_PROXY' environment variable specifies URLs that should be
+excluded from proxying (on servers that should be contacted directly).
+This should be a comma-separated list of hostnames, domain names, or a
+mixture of both.  Asterisks can be used as wildcards, but other clients
+may not support that.  Domain names may be indicated by a leading dot.
+For example:
+     NO_PROXY="*.aventail.com,home.com,.seanet.com"
+   says to contact all machines in the `aventail.com' and `seanet.com'
+domains directly, as well as the machine named `home.com'.  If
+`NO_PROXY' isn't defined, `no_PROXY' and `no_proxy' are also tried, in
+that order.
+
+   Proxies may also be specified directly in Lisp.
+
+ -- User Option: url-proxy-services
+     This variable is an alist of URL schemes and proxy servers that
+     gateway them.  The items are of the form
+     `(SCHEME . HOST:PORTNUMBER)', says that the URL SCHEME is
+     gatewayed through PORTNUMBER on the specified HOST.  An exception
+     is the pseudo scheme `"no_proxy"', which is paired with a regexp
+     matching host names not to be proxied.  This variable is
+     initialized from the environment as above.
+
+          (setq url-proxy-services
+                '(("http"     . "proxy.aventail.com:80")
+                  ("no_proxy" . "^.*\\(aventail\\|seanet\\)\\.com")))
+
+
+File: url.info,  Node: Gateways in general,  Next: History,  Prev: Proxies,  Up: General Facilities
+
+5.3 Gateways in General
+=======================
+
+The library provides a general gateway layer through which all
+networking passes.  It can both control access to the network and
+provide access through gateways in firewalls.  This may make direct
+connexions in some cases and pass through some sort of gateway in
+others.(1)  The library's basic function responsible for making
+connexions is `url-open-stream'.
+
+ -- Function: url-open-stream name buffer host service
+     Open a stream to HOST, possibly via a gateway.  The other
+     arguments are as for `open-network-stream'.  This will not make a
+     connexion if `url-gateway-unplugged' is non-`nil'.
+
+ -- Variable: url-gateway-local-host-regexp
+     This is a regular expression that matches local hosts that do not
+     require the use of a gateway.  If `nil', all connexions are made
+     through the gateway.
+
+ -- Variable: url-gateway-method
+     This variable controls which gateway method is used.  It may be
+     useful to bind it temporarily in some applications.  It has values
+     taken from a list of symbols.  Possible values are:
+
+    `telnet'
+          Use this method if you must first telnet and log into a
+          gateway host, and then run telnet from that host to connect
+          to outside machines.
+
+    `rlogin'
+          This method is identical to `telnet', but uses `rlogin' to
+          log into the remote machine without having to send the
+          username and password over the wire every time.
+
+    `socks'
+          Use if the firewall has a SOCKS gateway running on it.  The
+          SOCKS v5 protocol is defined in RFC 1928.
+
+    `native'
+          This method uses Emacs's builtin networking directly.  This
+          is the default.  It can be used only if there is no firewall
+          blocking access.
+
+   The following variables control the gateway methods.
+
+ -- User Option: url-gateway-telnet-host
+     The gateway host to telnet to.  Once logged in there, you then
+     telnet out to the hosts you want to connect to.
+
+ -- User Option: url-gateway-telnet-parameters
+     This should be a list of parameters to pass to the `telnet'
+     program.
+
+ -- User Option: url-gateway-telnet-password-prompt
+     This is a regular expression that matches the password prompt when
+     logging in.
+
+ -- User Option: url-gateway-telnet-login-prompt
+     This is a regular expression that matches the username prompt when
+     logging in.
+
+ -- User Option: url-gateway-telnet-user-name
+     The username to log in with.
+
+ -- User Option: url-gateway-telnet-password
+     The password to send when logging in.
+
+ -- User Option: url-gateway-prompt-pattern
+     This is a regular expression that matches the shell prompt.
+
+ -- User Option: url-gateway-rlogin-host
+     Host to `rlogin' to before telnetting out.
+
+ -- User Option: url-gateway-rlogin-parameters
+     Parametres to pass to `rsh'.
+
+ -- User Option: url-gateway-rlogin-user-name
+     User name to use when logging in to the gateway.
+
+ -- User Option: url-gateway-prompt-pattern
+     This is a regular expression that matches the shell prompt.
+
+ -- User Option: socks-server
+     This specifies the default server, it takes the form
+     `("Default server" SERVER PORT VERSION)' where VERSION can be
+     either 4 or 5.
+
+ -- Variable: socks-password
+     If this is `nil' then you will be asked for the passward,
+     otherwise it will be used as the password for authenticating you to
+     the SOCKS server.
+
+ -- Variable: socks-username
+     This is the username to use when authenticating yourself to the
+     SOCKS server.  By default this is your login name.
+
+ -- Variable: socks-timeout
+     This controls how long, in seconds, to wait for responses from the
+     SOCKS server; it is 5 by default.
+
+ -- User Option: socks-nslookup-program
+     This the `nslookup' program.  It is `"nslookup"' by default.
+
+* Menu:
+
+* Suppressing network connexions::
+* Broken hostname resolution::
+
+   ---------- Footnotes ----------
+
+   (1) Proxies (which only operate over HTTP) are implemented using
+this.
+
+
+File: url.info,  Node: Suppressing network connexions,  Next: Broken hostname resolution,  Up: Gateways in general
+
+5.3.1 Suppressing Network Connexions
+------------------------------------
+
+In some circumstances it is desirable to suppress making network
+connexions.  A typical case is when rendering HTML in a mail user
+agent, when external URLs should not be activated, particularly to
+avoid `bugs' which `call home' by fetch single-pixel images and the
+like.  To arrange this, bind the following variable for the duration of
+such processing.
+
+ -- Variable: url-gateway-unplugged
+     If this variable is non-`nil' new network connexions are never
+     opened by the URL library.
+
+
+File: url.info,  Node: Broken hostname resolution,  Prev: Suppressing network connexions,  Up: Gateways in general
+
+5.3.2 Broken Hostname Resolution
+--------------------------------
+
+Some C libraries do not include the hostname resolver routines in their
+static libraries.  If Emacs was linked statically, and was not linked
+with the resolver libraries, it wil not be able to get to any machines
+off the local network.  This is characterized by being able to reach
+someplace with a raw ip number, but not its hostname
+(`http://129.79.254.191/' works, but `http://www.cs.indiana.edu/'
+doesn't).  This used to happen on SunOS4 and Ultrix, but is now
+probably now rare.  If Emacs can't be rebuilt linked against the
+resolver library, it can use the external `nslookup' program instead.
+
+ -- User Option: url-gateway-broken-resolution
+     If non-`nil', this variable says to use the program specified by
+     `url-gateway-nslookup-program' program to do hostname resolution.
+
+ -- User Option: url-gateway-nslookup-program
+     The name of the program to do hostname lookup if Emacs can't do it
+     directly.  This program should expect a single argument on the
+     command line--the hostname to resolve--and should produce output
+     similar to the standard Unix `nslookup' program:
+          Name: www.cs.indiana.edu
+          Address: 129.79.254.191
+
+
+File: url.info,  Node: History,  Prev: Gateways in general,  Up: General Facilities
+
+5.4 History
+===========
+
+The library can maintain a global history list tracking URLs accessed.
+URL completion can be done from it.  The history mechanism is set up automatically
+via `url-do-setup' when it is configured to be on.  Note that the size
+of the history list is currently not limited.
+
+   The history `list' is actually a hash table,
+`url-history-hash-table'.  It contains access times keyed by URL
+strings.  The times are in the format returned by `current-time'.
+
+ -- Function: url-history-update-url url time
+     This function updates the hsitory table with an entry for URL
+     accessed at the gievn TIME.
+
+ -- User Option: url-history-track
+     If non-`nil', the library will keep track of all the URLs
+     accessed.  If is is `t', the list is saved to disk at the end of
+     each Emacs session.  The default is `nil'.
+
+ -- User Option: url-history-file
+     The file storing the history list between sessions.  It defaults to
+     `history' in `url-configuration-directory'.
+
+ -- User Option: url-history-save-interval
+     The number of seconds between automatic saves of the history list.
+     Default is one hour.  Note that if you change this variable
+     directly, rather than using Custom, after `url-do-setup' has been
+     run, you need to run the function `url-history-setup-save-timer'.
+
+ -- Function: url-history-parse-history &optional fname
+     Parses the history file FNAME (default `url-history-file') and
+     sets up the history list.
+
+ -- Function: url-history-save-history &optional fname
+     Saves the current history to file FNAME (default
+     `url-history-file').
+
+ -- Function: url-completion-function string predicate function
+     You can use this function to do completion of URLs from the
+     history.
+
+
+File: url.info,  Node: Customization,  Next: Function Index,  Prev: General Facilities,  Up: Top
+
+6 Customization
+***************
+
+6.1 Environment Variables
+=========================
+
+The following environment variables affect the library's operation at
+startup.
+
+`TMPDIR'
+     If this is defined, URL-TEMPORARY-DIRECTORY is initialized from it.
+
+6.2 General User Options
+========================
+
+The following user options, settable with Customize, affect the general
+operation of the package.
+
+ -- User Option: url-debug
+     Specifies the types of debug messages the library which are logged
+     to the `*URL-DEBUG*' buffer.  `t' means log all messages.  A
+     number means log all messages and show them with `message'.  If
+     may also be a list of the types of messages to be logged.
+
+ -- User Option: url-personal-mail-address
+
+ -- User Option: url-privacy-level
+
+ -- User Option: url-uncompressor-alist
+
+ -- User Option: url-passwd-entry-func
+
+ -- User Option: url-standalone-mode
+
+ -- User Option: url-bad-port-list
+
+ -- User Option: url-max-password-attempts
+
+ -- User Option: url-temporary-directory
+
+ -- User Option: url-show-status
+
+ -- User Option: url-confirmation-func
+     The function to use for asking yes or no functions.  This is
+     normally either `y-or-n-p' or `yes-or-no-p', but could be another
+     function taking a single argument (the prompt) and returning `t'
+     only if an affirmative answer is given.
+
+ -- User Option: url-gateway-method
+     A symbol specifying the type of gateway support to use fro
+     connexions from the local machine.  The supported methods are:
+
+    `telnet'
+          Run telnet in a subprocess to connect;
+
+    `rlogin'
+          Rlogin to another machine to connect;
+
+    `socks'
+          Connect through a socks server;
+
+    `ssl'
+          Connect with SSL;
+
+    `native'
+          Connect directly.
+
+
+File: url.info,  Node: Function Index,  Next: Variable Index,  Prev: Customization,  Up: Top
+
+Command and Function Index
+**************************
+
+ [index ]
+* Menu:
+
+* dired:                                 file/ftp.             (line  6)
+* Info-goto-node:                        info.                 (line  6)
+* man:                                   man.                  (line  6)
+* md5:                                   Disk Caching.         (line 31)
+* terminal-emulator:                     rlogin/telnet/tn3270. (line  6)
+* url-attributes:                        Parsed URLs.          (line 41)
+* url-cache-create-filename-human-readable: Disk Caching.      (line 38)
+* url-cache-create-filename-using-md5:   Disk Caching.         (line 31)
+* url-completion-function:               History.              (line 43)
+* url-decode-text-part:                  Dealing with HTTP documents.
+                                                               (line 13)
+* url-do-setup:                          History.              (line  7)
+* url-file:                              Parsed URLs.          (line 41)
+* url-full:                              Parsed URLs.          (line 41)
+* url-generic-parse-url:                 Parsed URLs.          (line 49)
+* url-history-parse-history:             History.              (line 35)
+* url-history-save-history:              History.              (line 39)
+* url-history-setup-save-timer:          History.              (line 29)
+* url-history-update-url:                History.              (line 16)
+* url-host:                              Parsed URLs.          (line 41)
+* url-http-options:                      HTTP URL Options.     (line 10)
+* url-irc-zenirc:                        irc.                  (line 16)
+* url-open-stream:                       Gateways in general.  (line 14)
+* url-password:                          Parsed URLs.          (line 41)
+* url-port:                              Parsed URLs.          (line 41)
+* url-recreate-url:                      Parsed URLs.          (line 52)
+* url-retrieve:                          Retrieving URLs.      (line 13)
+* url-retrieve-synchronously:            Retrieving URLs.      (line  7)
+* url-set-attributes:                    Parsed URLs.          (line 41)
+* url-set-file:                          Parsed URLs.          (line 41)
+* url-set-full:                          Parsed URLs.          (line 41)
+* url-set-host:                          Parsed URLs.          (line 41)
+* url-set-password:                      Parsed URLs.          (line 41)
+* url-set-port:                          Parsed URLs.          (line 41)
+* url-set-target:                        Parsed URLs.          (line 41)
+* url-set-type:                          Parsed URLs.          (line 41)
+* url-set-user:                          Parsed URLs.          (line 41)
+* url-target:                            Parsed URLs.          (line 41)
+* url-type:                              Parsed URLs.          (line 41)
+* url-user:                              Parsed URLs.          (line 41)
+
+
+File: url.info,  Node: Variable Index,  Next: Concept Index,  Prev: Function Index,  Up: Top
+
+Variable Index
+**************
+
+ [index ]
+* Menu:
+
+* HTTP_PROXY:                            Proxies.             (line   6)
+* mail-user-agent:                       mailto.              (line  10)
+* NNTPSERVER:                            news/nntp/snews.     (line  36)
+* NO_PROXY:                              Proxies.             (line  20)
+* socks-nslookup-program:                Gateways in general. (line 105)
+* socks-password:                        Gateways in general. (line  92)
+* socks-server:                          Gateways in general. (line  87)
+* socks-timeout:                         Gateways in general. (line 101)
+* socks-username:                        Gateways in general. (line  97)
+* TMPDIR:                                Customization.       (line  13)
+* url-automatic-caching:                 Disk Caching.        (line  14)
+* url-bad-port-list:                     Customization.       (line  38)
+* url-cache-creation-function:           Disk Caching.        (line  23)
+* url-cache-directory:                   Disk Caching.        (line  18)
+* url-configuration-directory:           Configuration.       (line   7)
+* url-confirmation-func:                 Customization.       (line  46)
+* url-cookie-confirmation:               Cookies.             (line  11)
+* url-cookie-file:                       Cookies.             (line   7)
+* url-cookie-multiple-line:              Cookies.             (line  14)
+* url-cookie-save-interval:              Cookies.             (line  27)
+* url-cookie-trusted-urls:               Cookies.             (line  19)
+* url-cookie-untrusted-urls:             Cookies.             (line  23)
+* url-debug:                             Customization.       (line  22)
+* url-directory-index-file:              file/ftp.            (line  19)
+* url-gateway-broken-resolution:         Broken hostname resolution.
+                                                              (line  17)
+* url-gateway-local-host-regexp:         Gateways in general. (line  19)
+* url-gateway-method <1>:                Customization.       (line  52)
+* url-gateway-method:                    Gateways in general. (line  24)
+* url-gateway-nslookup-program:          Broken hostname resolution.
+                                                              (line  21)
+* url-gateway-prompt-pattern:            Gateways in general. (line  72)
+* url-gateway-rlogin-host:               Gateways in general. (line  75)
+* url-gateway-rlogin-parameters:         Gateways in general. (line  78)
+* url-gateway-rlogin-user-name:          Gateways in general. (line  81)
+* url-gateway-telnet-host:               Gateways in general. (line  50)
+* url-gateway-telnet-login-prompt:       Gateways in general. (line  62)
+* url-gateway-telnet-parameters:         Gateways in general. (line  54)
+* url-gateway-telnet-password:           Gateways in general. (line  69)
+* url-gateway-telnet-password-prompt:    Gateways in general. (line  58)
+* url-gateway-telnet-user-name:          Gateways in general. (line  66)
+* url-gateway-unplugged:                 Suppressing network connexions.
+                                                              (line  14)
+* url-history-file:                      History.             (line  25)
+* url-history-hash-table:                History.             (line  11)
+* url-history-save-interval:             History.             (line  29)
+* url-history-track:                     History.             (line  20)
+* url-honor-refresh-requests:            http/https.          (line  19)
+* url-irc-function:                      irc.                 (line  10)
+* url-mail-command:                      mailto.              (line  10)
+* url-max-password-attempts:             Customization.       (line  40)
+* url-mime-charset-string:               HTTP language/coding.
+                                                              (line  10)
+* url-mime-language-string:              HTTP language/coding.
+                                                              (line  21)
+* url-news-server:                       news/nntp/snews.     (line  34)
+* url-nfs-automounter-directory-spec:    nfs.                 (line  13)
+* url-passwd-entry-func:                 Customization.       (line  34)
+* url-personal-mail-address:             Customization.       (line  28)
+* url-privacy-level:                     Customization.       (line  30)
+* url-proxy-services:                    Proxies.             (line  35)
+* url-show-status:                       Customization.       (line  44)
+* url-standalone-mode:                   Customization.       (line  36)
+* url-temporary-directory:               Customization.       (line  13)
+* url-uncompressor-alist:                Customization.       (line  32)
+
+
+File: url.info,  Node: Concept Index,  Prev: Variable Index,  Up: Top
+
+Concept Index
+*************
+
+ [index ]
+* Menu:
+
+* automounter:                           nfs.                 (line   6)
+* bugs, HTML:                            Suppressing network connexions.
+                                                              (line   6)
+* Cache cleaning:                        Disk Caching.        (line  10)
+* Caching:                               Disk Caching.        (line   6)
+* character sets:                        HTTP language/coding.
+                                                              (line  10)
+* Cleaning the cache:                    Disk Caching.        (line  10)
+* Clearing the cache:                    Disk Caching.        (line  10)
+* coding systems:                        HTTP language/coding.
+                                                              (line  10)
+* compressed files:                      file/ftp.            (line   6)
+* configuration files:                   Configuration.       (line   7)
+* Content-ID:                            cid.                 (line   6)
+* DASL:                                  HTTP URL Options.    (line  22)
+* data URLs:                             data.                (line   6)
+* DAV:                                   HTTP URL Options.    (line  18)
+* debugging:                             Customization.       (line  22)
+* Disk Cache:                            Disk Caching.        (line   6)
+* email:                                 mailto.              (line   6)
+* environment variable:                  news/nntp/snews.     (line  36)
+* environment variables <1>:             Customization.       (line   9)
+* environment variables:                 Proxies.             (line   6)
+* File Transfer Protocol:                file/ftp.            (line   6)
+* files:                                 file/ftp.            (line   6)
+* firewalls:                             Gateways in general. (line   6)
+* FTP:                                   file/ftp.            (line   6)
+* gateways:                              Gateways in general. (line   6)
+* hostname resolver:                     Broken hostname resolution.
+                                                              (line   6)
+* HTML `bugs':                           Suppressing network connexions.
+                                                              (line   6)
+* IMAP:                                  imap.                (line   6)
+* Info:                                  info.                (line   6)
+* Internet Relay Chat:                   irc.                 (line   6)
+* IRC:                                   irc.                 (line   6)
+* language preferences:                  HTTP language/coding.
+                                                              (line  21)
+* LDAP:                                  ldap.                (line   6)
+* Lightweight Directory Access Protocol: ldap.                (line   6)
+* mailto:                                mailto.              (line   6)
+* man:                                   man.                 (line   6)
+* network connexions, suppressing:       Suppressing network connexions.
+                                                              (line   6)
+* Network File System:                   nfs.                 (line   6)
+* network news:                          news/nntp/snews.     (line   6)
+* news:                                  news/nntp/snews.     (line   6)
+* NFS:                                   nfs.                 (line   6)
+* NNTP:                                  news/nntp/snews.     (line   6)
+* nslookup:                              Gateways in general. (line 105)
+* nslookup program:                      Broken hostname resolution.
+                                                              (line  17)
+* opening a stream:                      Gateways in general. (line  14)
+* P3P:                                   HTTP URL Options.    (line  29)
+* parsed URLs:                           Parsed URLs.         (line   6)
+* Persistent Cache:                      Disk Caching.        (line   6)
+* program, nslookup:                     Broken hostname resolution.
+                                                              (line  17)
+* proxies:                               Proxies.             (line   6)
+* proxy servers:                         Proxies.             (line   6)
+* resolver, hostname:                    Broken hostname resolution.
+                                                              (line   6)
+* rlogin <1>:                            Gateways in general. (line  34)
+* rlogin:                                rlogin/telnet/tn3270.
+                                                              (line   6)
+* snews:                                 news/nntp/snews.     (line   6)
+* SOCKS:                                 Gateways in general. (line  39)
+* SSL:                                   news/nntp/snews.     (line  27)
+* stream, opening:                       Gateways in general. (line  14)
+* suppressing network connexions:        Suppressing network connexions.
+                                                              (line   6)
+* telnet <1>:                            Gateways in general. (line  29)
+* telnet:                                rlogin/telnet/tn3270.
+                                                              (line   6)
+* terminal emulation:                    rlogin/telnet/tn3270.
+                                                              (line   6)
+* Texinfo:                               info.                (line   6)
+* tn3270:                                rlogin/telnet/tn3270.
+                                                              (line   6)
+* Unix man pages:                        man.                 (line   6)
+* unparsing URLs:                        Parsed URLs.         (line  52)
+* URIs:                                  Getting Started.     (line   6)
+* URLs, definition:                      Getting Started.     (line   6)
+* usenet:                                news/nntp/snews.     (line   6)
+* ZEN IRC:                               irc.                 (line   6)
+* ~/.url:                                Configuration.       (line   7)
+
+
+
+Tag Table:
+Node: Top759
+Node: Getting Started1396
+Node: Configuration2925
+Node: Parsed URLs3188
+Node: Retrieving URLs4544
+Node: Supported URL Types5458
+Node: http/https6323
+Node: Cookies7511
+Node: HTTP language/coding8502
+Node: HTTP URL Options9863
+Node: Dealing with HTTP documents10799
+Node: file/ftp11816
+Node: info12720
+Node: mailto12992
+Node: news/nntp/snews14104
+Node: rlogin/telnet/tn327015344
+Node: irc15916
+Node: data16579
+Node: nfs17049
+Node: cid17804
+Node: about17915
+Node: ldap18021
+Node: imap18167
+Node: man18280
+Node: Defining New URLs18483
+Node: Naming conventions18772
+Node: Required functions18915
+Node: Optional functions19085
+Node: Asynchronous fetching19258
+Node: Supporting file-name-handlers19448
+Node: General Facilities19627
+Node: Disk Caching19848
+Node: Proxies21905
+Node: Gateways in general23965
+Ref: Gateways in general-Footnote-128042
+Node: Suppressing network connexions28117
+Node: Broken hostname resolution28803
+Node: History30158
+Node: Customization32002
+Node: Function Index33876
+Node: Variable Index36966
+Node: Concept Index41832
+
+End Tag Table
