@@ -18,6 +18,12 @@
 ;; =========================================================================
 
 ;; -------------------------------------------------------------------------
+;; ---- Load private settings (passwords, etc) -----------------------------
+;; -------------------------------------------------------------------------
+
+(load "~/.emacs.d/private.el")
+
+;; -------------------------------------------------------------------------
 ;; ---- add-change-log configuration ---------------------------------------
 ;; -------------------------------------------------------------------------
 
@@ -109,6 +115,44 @@
                 (c-set-style "linux-tabs-only")))))
 
 ;; -------------------------------------------------------------------------
+;; ---- ERC Configuration --------------------------------------------------
+;; -------------------------------------------------------------------------
+
+; My autojoin list
+(setq erc-autojoin-channels-alist
+      '((".freenode.net$" . ("#gdb"))
+	(".oftc.net$" . ("#gcc"))))
+
+; Command for joining IRC.
+(defun atg/erc ()
+  "Connect to my IRC servers/channels."
+  (interactive)
+  (progn
+   (atg/erc-freenode)
+   (atg/erc-oftc)))
+
+(defun atg/erc-freenode () "Connect to Freenode."
+  (erc-select :server "irc.freenode.net" 
+	      :port 6667 
+	      :nick private/freenode-nick 
+	      :password private/freenode-password 
+	      :full-name private/freenode-fullname))
+
+(defun atg/erc-oftc () "Connect to OFTC."
+  (erc-select :server "irc.oftc.net" :port 6667 
+	      :port 6667 
+	      :nick private/oftc-nick 
+	      :password private/oftc-password 
+	      :full-name private/oftc-fullname))
+
+(defun erc-autojoin-channels (server nick)
+ (dolist (l erc-autojoin-channels-alist)
+    (when (string-match (car l) server)
+      (dolist (chan (cdr l))
+        (erc-send-command (concat "join " chan))))
+    (add-hook 'erc-after-connect 'erc-autojoin-channels)))
+
+;; -------------------------------------------------------------------------
 ;; ---- User Interface and Miscelleneous Editing Tweaks --------------------
 ;; -------------------------------------------------------------------------
 
@@ -139,6 +183,3 @@
 ;; Cycle through buffers.
 (global-set-key (kbd "<C-tab>") 'bury-buffer)
 
-;; Interactively Do Things
-(ido-mode t)
-(setq ido-enable-flex-matching t)
