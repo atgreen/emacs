@@ -109,9 +109,36 @@
                 (c-set-style "linux-tabs-only")))))
 
 ;; -------------------------------------------------------------------------
-;; ---- User Interface Tweaks ----------------------------------------------
+;; ---- User Interface and Miscelleneous Editing Tweaks --------------------
 ;; -------------------------------------------------------------------------
+
+; All files should end with a newline.
+(setq require-final-newline t) 
 
 ; Turn off the annoying tool bar.
 (tool-bar-mode -1)
 
+; Disable the startup screen.
+(setq inhibit-startup-screen t)
+
+; Make the current selection visible.
+(transient-mark-mode t)
+
+; Mode line settings.
+(line-number-mode t)
+(column-number-mode t)
+(size-indication-mode t)
+
+; Give meaningful names to buffers with the same name.
+(require 'uniquify)
+(setq uniquify-buffer-name-style 'forward)
+(setq uniquify-separator "/")
+(setq uniquify-after-kill-buffer-p t)
+(setq uniquify-ignore-buffers-re "^\\*")
+
+;; Cycle through buffers.
+(global-set-key (kbd "<C-tab>") 'bury-buffer)
+
+;; Interactively Do Things
+(ido-mode t)
+(setq ido-enable-flex-matching t)
