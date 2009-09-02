@@ -194,6 +194,15 @@
 				"324" "329" "332" "333" "353" "477"))
 (setq erc-track-exclude-server-buffer t)
 
+; Kill some noise by hiding certain messages...
+(setq erc-hide-list '("JOIN" "PART" "QUIT" "MODE" "NICK"))
+
+; ...but don't silence the #gcc channel.
+(add-hook 'erc-join-hook
+	  (lambda ()
+	    (if (equal "#gcc" (buffer-name))
+		(set (make-local-variable 'erc-hide-list) '()))))
+
 ;; -------------------------------------------------------------------------
 ;; ---- User Interface and Miscelleneous Editing Tweaks --------------------
 ;; -------------------------------------------------------------------------
