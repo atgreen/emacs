@@ -56,6 +56,19 @@
       add-log-keep-changes-together t)
 
 ;; -------------------------------------------------------------------------
+;; ---- Copyright notice updating ------------------------------------------
+;; -------------------------------------------------------------------------
+
+; Prompt me about updating copyright notices.
+
+(defun fp-copyright-update () 
+  (and (not (eq major-mode 'fundamental-mode))
+       (copyright-update)))
+
+(and (fboundp 'copyright-update)
+     (add-hook 'write-file-hooks 'fp-copyright-update))
+
+;; -------------------------------------------------------------------------
 ;; ---- Tom Tromey's ELPA --------------------------------------------------
 ;; -------------------------------------------------------------------------
 
@@ -231,3 +244,23 @@
 ; Delete the selection area with a keypress
 (delete-selection-mode t)
 
+; Set the editing mode for special files.
+(setq auto-mode-alist (append '(("README" . text-mode)
+                                ("^/etc/rc" . ksh-mode))
+                              auto-mode-alist))
+
+; Auto fill and spell when in text mode.
+(add-hook 'text-mode-hook 'turn-on-auto-fill)
+(add-hook 'text-mode-hook 'flyspell-mode)
+
+;; Makefile mode settings.
+(add-hook 'makefile-mode-hook (lambda ()
+                                (font-lock-mode 1)
+                                (auto-fill-mode 1)
+                                (make-local-variable 'fill-paragraph-function)
+                                (setq fill-paragraph-function
+                                      'makefile-fill-paragraph)))
+
+;; Only one space between text and backslash.
+(setq makefile-backslash-column 0)
+(setq makefile-backslash-align nil)
