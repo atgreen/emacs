@@ -24,13 +24,36 @@
 (load "~/.emacs.d/private.el")
 
 ;; -------------------------------------------------------------------------
+;; ---- Auto byte-compile this file ----------------------------------------
+;; -------------------------------------------------------------------------
+
+(defun byte-compile-init-file ()
+  (when (equal buffer-file-name user-init-file)
+     (let ((byte-compile-warnings '(unresolved)))
+          (when (file-exists-p (concat user-init-file ".elc"))
+                (delete-file (concat user-init-file ".elc")))
+          (byte-compile-file user-init-file)
+          (message "Just byte-compiled %s " user-init-file))))
+
+(add-hook 'kill-buffer-hook 'byte-compile-init-file)
+
+;; -------------------------------------------------------------------------
+;; ---- Desktop save and restore -------------------------------------------
+;; -------------------------------------------------------------------------
+
+(require 'desktop)
+(desktop-save-mode t)
+(setq history-lenth 1500)
+(add-to-list 'desktop-globals-to-save 'file-name-history)
+(desktop-read)
+
+;; -------------------------------------------------------------------------
 ;; ---- add-change-log configuration ---------------------------------------
 ;; -------------------------------------------------------------------------
 
 (setq add-log-full-name "Anthony Green"
       add-log-mailing-address "green@moxielogic.com"
-      add-log-keep-changes-together t
-      )
+      add-log-keep-changes-together t)
 
 ;; -------------------------------------------------------------------------
 ;; ---- Tom Tromey's ELPA --------------------------------------------------
@@ -120,8 +143,9 @@
 
 ; My autojoin list
 (setq erc-autojoin-channels-alist
-      '((".freenode.net$" . ("#gdb"))
-	(".oftc.net$" . ("#gcc"))))
+      '((".freenode.net$" . 
+	 ("#gdb" "#uclibc" "#lisp" "#fpga" "#qemu" "#classpath"))
+	(".oftc.net$" . ("#gcc" "#kernelnewbies" "#openjdk"))))
 
 ; Command for joining IRC.
 (defun atg/erc ()
@@ -152,6 +176,11 @@
         (erc-send-command (concat "join " chan))))
     (add-hook 'erc-after-connect 'erc-autojoin-channels)))
 
+; Don't bother me with certain kinds of IRC messages.
+(setq erc-track-exclude-types '("JOIN" "NICK" "PART" "QUIT" "MODE"
+				"324" "329" "332" "333" "353" "477"))
+(setq erc-track-exclude-server-buffer t)
+
 ;; -------------------------------------------------------------------------
 ;; ---- User Interface and Miscelleneous Editing Tweaks --------------------
 ;; -------------------------------------------------------------------------
@@ -180,6 +209,25 @@
 (setq uniquify-after-kill-buffer-p t)
 (setq uniquify-ignore-buffers-re "^\\*")
 
-;; Cycle through buffers.
+; Cycle through buffers.
 (global-set-key (kbd "<C-tab>") 'bury-buffer)
+
+; hippie-expand!
+(setq hippie-expand-try-functions-list '(try-expand-dabbrev
+					 try-expand-dabbrev-all-buffers 
+					 try-expand-dabbrev-from-kill
+					 try-complete-file-name-partially 
+					 try-complete-file-name
+					 try-expand-all-abbrevs 
+					 try-expand-list 
+					 try-expand-line
+					 try-complete-lisp-symbol-partially 
+					 try-complete-lisp-symbol))
+(global-set-key (kbd "M-/") 'hippie-expand)
+
+; Show matching parens
+(show-paren-mode t)
+
+; Delete the selection area with a keypress
+(delete-selection-mode t)
 
