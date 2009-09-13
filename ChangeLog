@@ -1,3 +1,7 @@
+2009-09-03  Anthony Green  <green@moxielogic.com>
+
+	* init.el (text-mode-hook): Enable org tables in text mode.
+
 2009-09-02  Anthony Green  <green@moxielogic.com>
 
 	* init.el: Add copyright update and some mode setting tweaks from

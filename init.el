@@ -204,6 +204,30 @@
 		(set (make-local-variable 'erc-hide-list) '()))))
 
 ;; -------------------------------------------------------------------------
+;; ---- OrgMode Tweaks -----------------------------------------------------
+;; -------------------------------------------------------------------------
+
+(require 'remember)
+(setq remember-annotation-functions '(org-remember-annotation))
+(setq remember-handler-functions '(org-remember-handler))
+(add-hook 'remember-mode-hook 'org-remember-apply-template)
+(org-remember-insinuate)
+(setq org-directory "~/orgfiles/")
+(setq org-default-notes-file (concat org-directory "notes.org"))
+(define-key global-map "\C-cr" 'org-remember)
+
+(setq org-remember-templates
+      '(("Todo" ?t "* TODO %?\n  %i\n  %a"  
+	 (concat org-directory "TODO.org") "Tasks")
+        ("Journal" ?j "* %U %?\n\n  %i\n  %a" 
+	 (concat org-directory "JOURNAL.org"))
+         ("Idea" ?i "* %^{Title}\n  %i\n  %a" 
+	 (concat org-directory "JOURNAL.org") "New Ideas")))
+
+; Org tables rock!  Use them in regular text files.
+(add-hook 'text-mode-hook 'turn-on-orgtbl)
+
+;; -------------------------------------------------------------------------
 ;; ---- User Interface and Miscelleneous Editing Tweaks --------------------
 ;; -------------------------------------------------------------------------
 
@@ -273,3 +297,15 @@
 ;; Only one space between text and backslash.
 (setq makefile-backslash-column 0)
 (setq makefile-backslash-align nil)
+(custom-set-variables
+  ;; custom-set-variables was added by Custom.
+  ;; If you edit it by hand, you could mess it up, so be careful.
+  ;; Your init file should contain only one such instance.
+  ;; If there is more than one, they won't work right.
+ '(org-agenda-files (quote ("~/todo.org"))))
+(custom-set-faces
+  ;; custom-set-faces was added by Custom.
+  ;; If you edit it by hand, you could mess it up, so be careful.
+  ;; Your init file should contain only one such instance.
+  ;; If there is more than one, they won't work right.
+ )
