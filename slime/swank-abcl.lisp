@@ -14,14 +14,17 @@
   (require :collect) ;just so that it doesn't spoil the flying letters
   (require :pprint))
 
+;;; The introduction of SYS::*INVOKE-DEBUGGER-HOOK* obliterates the
+;;; need for redefining BREAK. The following should thus be removed at
+;;; some point in the future.
+#-#.(swank-backend:with-symbol '*invoke-debugger-hook* 'sys)
 (defun sys::break (&optional (format-control "BREAK called") 
                    &rest format-arguments)
-  (let ((*saved-backtrace* 
-         #+#.(swank-backend::with-symbol 'backtrace 'sys) 
+  (let ((sys::*saved-backtrace* 
+         #+#.(swank-backend:with-symbol 'backtrace 'sys) 
          (sys:backtrace)
-         #-#.(swank-backend::with-symbol 'backtrace 'sys)
-         (ext:backtrace-as-list)
-         ))
+         #-#.(swank-backend:with-symbol 'backtrace 'sys)
+         (ext:backtrace-as-list)))
     (with-simple-restart (continue "Return from BREAK.")
       (invoke-debugger
        (sys::%make-condition 'simple-condition
@@ -47,11 +50,24 @@
 
 ;(defun class-finalized-p (class) t)
 
-(defun slot-definition-documentation (slot) #+nil (documentation slot 't))
-(defun slot-definition-type (slot) t)
-(defun class-prototype (class))
-(defun generic-function-declarations (gf))
-(defun specializer-direct-methods (spec) (mop::class-direct-methods spec))
+(defun slot-definition-documentation (slot)
+  (declare (ignore slot))
+  #+nil (documentation slot 't))
+
+(defun slot-definition-type (slot)
+  (declare (ignore slot))
+  t)
+
+(defun class-prototype (class)
+  (declare (ignore class))
+  nil)
+
+(defun generic-function-declarations (gf)
+  (declare (ignore gf))
+  nil)
+
+(defun specializer-direct-methods (spec)
+  (mop::class-direct-methods spec))
 
 (defun slot-definition-name (slot)
   (mop::%slot-definition-name slot))
@@ -66,9 +82,11 @@
   (mop::%method-function method))
 
 (defun slot-boundp-using-class (class object slotdef)
+  (declare (ignore class))
   (system::slot-boundp object (slot-definition-name slotdef)))
 
 (defun slot-value-using-class (class object slotdef)
+  (declare (ignore class))
   (system::slot-value object (slot-definition-name slotdef)))
 
 (import-to-swank-mop
@@ -164,9 +182,6 @@
 
 ;;;; Unix signals
 
-(defimplementation call-without-interrupts (fn)
-  (funcall fn))
-
 (defimplementation getpid ()
   (handler-case 
       (let* ((runtime 
@@ -213,8 +228,16 @@
 
 (defimplementation arglist (fun)
   (cond ((symbolp fun)
-         (multiple-value-bind (arglist present) (sys::arglist fun)
-           (if present arglist :not-available)))
+          (multiple-value-bind (arglist present) 
+              (sys::arglist fun)
+            (when (and (not present)
+                       (fboundp fun)
+                       (typep (symbol-function fun) 'standard-generic-function))
+              (setq arglist
+                    (mop::generic-function-lambda-list (symbol-function fun))
+                    present
+                    t))
+            (if present arglist :not-available)))
         (t :not-available)))
 
 (defimplementation function-name (function)
@@ -263,28 +286,50 @@
 
 ;;;; Debugger
 
+;;; Copied from swank-sbcl.lisp.
+(defun make-invoke-debugger-hook (hook)
+  #'(lambda (condition old-hook)
+      ;; Notice that *INVOKE-DEBUGGER-HOOK* is tried before
+      ;; *DEBUGGER-HOOK*, so we have to make sure that the latter gets
+      ;; run when it was established locally by a user (i.e. changed
+      ;; meanwhile.)
+      (if *debugger-hook*
+          (funcall *debugger-hook* condition old-hook)
+          (funcall hook condition old-hook))))
+
+(defimplementation call-with-debugger-hook (hook fun)
+  (let ((*debugger-hook* hook)
+        #+#.(swank-backend:with-symbol '*invoke-debugger-hook* 'sys)
+        (sys::*invoke-debugger-hook* (make-invoke-debugger-hook hook)))
+    (funcall fun)))
+
+(defimplementation install-debugger-globally (function)
+  (setq *debugger-hook* function)
+  #+#.(swank-backend:with-symbol '*invoke-debugger-hook* 'sys)
+  (setq sys::*invoke-debugger-hook* (make-invoke-debugger-hook function)))
+
 (defvar *sldb-topframe*)
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (let* ((magic-token (intern "SWANK-DEBUGGER-HOOK" 'swank))
          (*sldb-topframe* 
-          #+#.(swank-backend::with-symbol 'backtrace 'sys)
+          #+#.(swank-backend:with-symbol 'backtrace 'sys)
           (second (member magic-token (sys:backtrace)
                           :key #'(lambda (frame) 
                                    (first (sys:frame-to-list frame)))))
-          #-#.(swank-backend::with-symbol 'backtrace 'sys)
+          #-#.(swank-backend:with-symbol 'backtrace 'sys)
           (second (member magic-token (ext:backtrace-as-list)
                           :key #'(lambda (frame) 
                                    (first frame))))
-          ))
+          ))    
     (funcall debugger-loop-fn)))
 
 (defun backtrace (start end)
   "A backtrace without initial SWANK frames."
   (let ((backtrace 
-         #+#.(swank-backend::with-symbol 'backtrace 'sys)
+         #+#.(swank-backend:with-symbol 'backtrace 'sys)
          (sys:backtrace)
-         #-#.(swank-backend::with-symbol 'backtrace 'sys)
+         #-#.(swank-backend:with-symbol 'backtrace 'sys)
          (ext:backtrace-as-list)
          ))
     (subseq (or (member *sldb-topframe* backtrace) backtrace)
@@ -298,10 +343,10 @@
     (backtrace start end)))
 
 (defimplementation print-frame (frame stream)
-  (write-string 
-   #+#.(swank-backend::with-symbol 'backtrace 'sys)
+  (write-string
+   #+#.(swank-backend:with-symbol 'backtrace 'sys)
    (sys:frame-to-string frame)
-   #-#.(swank-backend::with-symbol 'backtrace 'sys)
+   #-#.(swank-backend:with-symbol 'backtrace 'sys)
    (string-trim '(#\space #\newline) (prin1-to-string frame))
    stream))
 
@@ -345,6 +390,8 @@
 
 (in-package :swank-backend)
 
+(defvar *abcl-signaled-conditions*)
+
 (defun handle-compiler-warning (condition)
   (let ((loc (when (and jvm::*compile-file-pathname* 
                         system::*source-position*)
@@ -371,8 +418,6 @@
                                  (list :file (namestring *compile-filename*))
                                  (list :position 1)))))))))
 
-(defvar *abcl-signaled-conditions*)
-
 (defimplementation swank-compile-file (input-file output-file
                                        load-p external-format)
   (declare (ignore external-format))
@@ -384,9 +429,8 @@
         (multiple-value-bind (fn warn fail) 
             (compile-file input-file :output-file output-file)
           (values fn warn
-                  (or fail 
-                      (and load-p 
-                           (not (load fn))))))))))
+                  (and fn load-p
+                       (not (load fn)))))))))
 
 (defimplementation swank-compile-string (string &key buffer position filename
                                          policy)
@@ -430,12 +474,14 @@
 
 (defun source-location (symbol)
   (when (pathnamep (ext:source-pathname symbol))
-    `(((,symbol)
-       (:location 
-        (:file ,(namestring (ext:source-pathname symbol)))
-        (:position ,(or (ext:source-file-position symbol) 1))
-        (:align t))))))
-
+    (let ((pos (ext:source-file-position symbol)))
+      `(((,symbol)
+         (:location
+           (:file ,(namestring (ext:source-pathname symbol)))
+           ,(if pos
+                (list :position (1+ pos))
+                (list :function-name (string symbol)))
+           (:align t)))))))
 
 (defimplementation find-definitions (symbol)
   (source-location symbol))
@@ -470,35 +516,35 @@ part of *sysdep-pathnames* in swank.loader.lisp.
 ;;;; Inspecting
 
 (defmethod emacs-inspect ((slot mop::slot-definition))
-          `("Name: " (:value ,(mop::%slot-definition-name slot))
-            (:newline)
-            "Documentation:" (:newline)
-            ,@(when (slot-definition-documentation slot)
-                `((:value ,(slot-definition-documentation slot)) (:newline)))
-            "Initialization:" (:newline)
-            "  Args: " (:value ,(mop::%slot-definition-initargs slot)) (:newline)
-            "  Form: "  ,(if (mop::%slot-definition-initfunction slot)
-                             `(:value ,(mop::%slot-definition-initform slot))
-                             "#<unspecified>") (:newline)
-            "  Function: " (:value ,(mop::%slot-definition-initfunction slot))
-            (:newline)))
+  `("Name: " (:value ,(mop::%slot-definition-name slot))
+             (:newline)
+             "Documentation:" (:newline)
+             ,@(when (slot-definition-documentation slot)
+                     `((:value ,(slot-definition-documentation slot)) (:newline)))
+             "Initialization:" (:newline)
+             "  Args: " (:value ,(mop::%slot-definition-initargs slot)) (:newline)
+             "  Form: "  ,(if (mop::%slot-definition-initfunction slot)
+                              `(:value ,(mop::%slot-definition-initform slot))
+                              "#<unspecified>") (:newline)
+                              "  Function: " (:value ,(mop::%slot-definition-initfunction slot))
+                              (:newline)))
 
 (defmethod emacs-inspect ((f function))
-          `(,@(when (function-name f)
-                    `("Name: " 
-                      ,(princ-to-string (function-name f)) (:newline)))
-            ,@(multiple-value-bind (args present) 
-                                   (sys::arglist f)
-                                   (when present `("Argument list: " ,(princ-to-string args) (:newline))))
-            (:newline)
-            #+nil,@(when (documentation f t)
-                         `("Documentation:" (:newline) ,(documentation f t) (:newline)))
-            ,@(when (function-lambda-expression f)
-                    `("Lambda expression:" 
-                      (:newline) ,(princ-to-string (function-lambda-expression f)) (:newline)))))
+  `(,@(when (function-name f)
+            `("Name: " 
+              ,(princ-to-string (function-name f)) (:newline)))
+      ,@(multiple-value-bind (args present) 
+                             (sys::arglist f)
+                             (when present `("Argument list: " ,(princ-to-string args) (:newline))))
+      (:newline)
+      #+nil,@(when (documentation f t)
+                   `("Documentation:" (:newline) ,(documentation f t) (:newline)))
+      ,@(when (function-lambda-expression f)
+              `("Lambda expression:" 
+                (:newline) ,(princ-to-string (function-lambda-expression f)) (:newline)))))
 
 #|
-
+;;; XXX -- the default SLIME implementation looks ok.  Remove?  --ME 20100111
 (defmethod emacs-inspect ((o t))
   (let* ((class (class-of o))
          (slots (mop::class-slots class)))
@@ -509,6 +555,12 @@ part of *sysdep-pathnames* in swank.loader.lisp.
                     slots)))
 |#
 
+(defmethod emacs-inspect ((o java:java-object))
+  (append 
+   (label-value-line "toString()" (java:jcall "toString" o)) 
+   (loop :for (label . value) :in (sys:inspected-parts o)
+      :appending (label-value-line label value))))
+  
 ;;;; Multithreading
 
 #+#.(cl:if (cl:find-package :threads) '(:and) '(:or))
@@ -537,18 +589,6 @@ part of *sysdep-pathnames* in swank.loader.lisp.
 
   (defimplementation thread-status (thread)
     (format nil "Thread is ~:[dead~;alive~]" (threads:thread-alive-p thread)))
-
-  ;; XXX should be a weak hash table
-  (defparameter *thread-description-map* (make-hash-table)) 
-
-  (defimplementation thread-description (thread) 
-    (synchronized-on *thread-description-map*
-      (or (gethash thread *thread-description-map*)
-          "No description available.")))
-
-  (defimplementation set-thread-description (thread description) 
-    (synchronized-on *thread-description-map*
-      (setf (gethash thread *thread-description-map*) description)))
 
   (defimplementation make-lock (&key name)
     (declare (ignore name))

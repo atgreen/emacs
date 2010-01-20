@@ -1,3 +1,8 @@
+2010-01-20  Anthony Green  <green@moxielogic.com>
+
+	* verilog-mode.el: Update to version 553.
+	* slime/*: Update from upstream.
+
 2009-09-03  Anthony Green  <green@moxielogic.com>
 
 	* init.el (text-mode-hook): Enable org tables in text mode.

@@ -12,7 +12,8 @@
 
 (defpackage :swank-backend
   (:use :common-lisp)
-  (:export #:sldb-condition
+  (:export #:*debug-swank-backend*
+           #:sldb-condition
            #:compiler-condition
            #:original-condition
            #:message
@@ -32,6 +33,7 @@
            #:unbound-slot-filler
            #:declaration-arglist
            #:type-specifier-arglist
+           #:with-struct
            ;; interrupt macro for the backend
            #:*pending-slime-interrupts*
            #:check-slime-interrupts
@@ -40,9 +42,7 @@
            #:emacs-inspect
            #:label-value-line
            #:label-value-line*
-           
-           #:with-struct
-           ))
+           #:with-symbol))
 
 (defpackage :swank-mop
   (:use)
@@ -101,6 +101,11 @@
 
 
 ;;;; Metacode
+
+(defparameter *debug-swank-backend* nil
+  "If this is true, backends should not catch errors but enter the
+debugger where appropriate. Also, they should not perform backtrace
+magic but really show every frame including SWANK related ones.")
 
 (defparameter *interface-functions* '()
   "The names of all interface functions.")
@@ -308,10 +313,6 @@ that the calling thread is the one that interacts with Emacs."
 
 (defconstant +sigint+ 2)
 
-(definterface call-without-interrupts (fn)
-  "Call FN in a context where interrupts are disabled."
-  (funcall fn))
-
 (definterface getpid ()
   "Return the (Unix) process ID of this superior Lisp.")
 
@@ -333,6 +334,28 @@ Return old signal handler."
 (definterface lisp-implementation-type-name ()
   "Return a short name for the Lisp implementation."
   (lisp-implementation-type))
+
+(definterface socket-fd (socket-stream)
+  "Return the file descriptor for SOCKET-STREAM.")
+
+(definterface make-fd-stream (fd external-format)
+  "Create a character stream for the file descriptor FD.")
+
+(definterface dup (fd)
+  "Duplicate a file descriptor.
+If the syscall fails, signal a condition.
+See dup(2).")
+
+(definterface exec-image (image-file args)
+  "Replace the current process with a new process image.
+The new image is created by loading the previously dumped
+core file IMAGE-FILE.
+ARGS is a list of strings passed as arguments to
+the new image.
+This is thin wrapper around exec(3).")
+
+(definterface command-line-args ()
+  "Return a list of strings as passed by the OS.")
 
 
 ;; pathnames are sooo useless
@@ -519,10 +542,10 @@ include implementation-dependend declaration specifiers, or to provide
 additional information on the specifiers defined in ANSI Common Lisp.")
   (:method (decl-identifier)
     (case decl-identifier
-      (dynamic-extent '(&rest vars))
-      (ignore         '(&rest vars))
-      (ignorable      '(&rest vars))
-      (special        '(&rest vars))
+      (dynamic-extent '(&rest variables))
+      (ignore         '(&rest variables))
+      (ignorable      '(&rest variables))
+      (special        '(&rest variables))
       (inline         '(&rest function-names))
       (notinline      '(&rest function-names))
       (declaration    '(&rest names))
@@ -532,9 +555,9 @@ additional information on the specifiers defined in ANSI Common Lisp.")
       (otherwise
        (flet ((typespec-p (symbol) (member :type (describe-symbol-for-emacs symbol))))
          (cond ((and (symbolp decl-identifier) (typespec-p decl-identifier))
-                '(&rest vars))
+                '(&rest variables))
                ((and (listp decl-identifier) (typespec-p (first decl-identifier)))
-                '(&rest vars))
+                '(&rest variables))
                (t :not-available)))))))
 
 (defgeneric type-specifier-arglist (typespec-operator)
@@ -639,7 +662,7 @@ For example, this is a reasonable place to compute a backtrace, switch
 to safe reader/printer settings, and so on.")
 
 (definterface call-with-debugger-hook (hook fun)
-  "Call FUN and use HOOK as debugger hook.
+  "Call FUN and use HOOK as debugger hook. HOOK can be NIL.
 
 HOOK should be called for both BREAK and INVOKE-DEBUGGER."
   (let ((*debugger-hook* hook))
@@ -724,6 +747,9 @@ frame which invoked the debugger.
 The return value is the result of evaulating FORM in the
 appropriate context.")
 
+(definterface frame-call (frame-number)
+  "Return a string representing a call to the entry point of a frame.")
+
 (definterface return-from-frame (frame-number form)
   "Unwind the stack to the frame FRAME-NUMBER and return the value(s)
 produced by evaluating FORM in the frame context to its caller.
@@ -794,6 +820,15 @@ returns.")
 (defstruct (:buffer (:type list) :named (:constructor)) name)
 (defstruct (:position (:type list) :named (:constructor)) pos)
 
+(defun make-error-location (datum &rest args)
+  (cond ((typep datum 'condition)
+         `(:error ,(format nil "Error: ~A" datum)))
+        ((symbolp datum)
+         `(:error ,(format nil "Error: ~A" (apply #'make-condition datum args))))
+        (t
+         (assert (stringp datum))
+         `(:error ,(apply #'format nil datum args)))))
+
 (definterface find-definitions (name)
    "Return a list ((DSPEC LOCATION) ...) for NAME's definitions.
 
@@ -815,7 +850,9 @@ respective DEFSTRUCT definition, and so on."
   ;; This returns one source location and not a list of locations. It's
   ;; supposed to return the location of the DEFGENERIC definition on
   ;; #'SOME-GENERIC-FUNCTION.
-  )
+  (declare (ignore object))
+  (make-error-location "FIND-DEFINITIONS is not yet implemented on ~
+                        this implementation."))
 
 
 (definterface buffer-first-change (filename)
@@ -829,31 +866,45 @@ respective DEFSTRUCT definition, and so on."
 
 (definterface who-calls (function-name)
   "Return the call sites of FUNCTION-NAME (a symbol).
-The results is a list ((DSPEC LOCATION) ...).")
+The results is a list ((DSPEC LOCATION) ...)."
+  (declare (ignore function-name))
+  :not-implemented)
 
 (definterface calls-who (function-name)
   "Return the call sites of FUNCTION-NAME (a symbol).
-The results is a list ((DSPEC LOCATION) ...).")
+The results is a list ((DSPEC LOCATION) ...)."
+  (declare (ignore function-name))
+  :not-implemented)
 
 (definterface who-references (variable-name)
   "Return the locations where VARIABLE-NAME (a symbol) is referenced.
-See WHO-CALLS for a description of the return value.")
+See WHO-CALLS for a description of the return value."
+  (declare (ignore variable-name))
+  :not-implemented)
 
 (definterface who-binds (variable-name)
   "Return the locations where VARIABLE-NAME (a symbol) is bound.
-See WHO-CALLS for a description of the return value.")
+See WHO-CALLS for a description of the return value."
+  (declare (ignore variable-name))
+  :not-implemented)
 
 (definterface who-sets (variable-name)
   "Return the locations where VARIABLE-NAME (a symbol) is set.
-See WHO-CALLS for a description of the return value.")
+See WHO-CALLS for a description of the return value."
+  (declare (ignore variable-name))
+  :not-implemented)
 
 (definterface who-macroexpands (macro-name)
   "Return the locations where MACRO-NAME (a symbol) is expanded.
-See WHO-CALLS for a description of the return value.")
+See WHO-CALLS for a description of the return value."
+  (declare (ignore macro-name))
+  :not-implemented)
 
 (definterface who-specializes (class-name)
   "Return the locations where CLASS-NAME (a symbol) is specialized.
-See WHO-CALLS for a description of the return value.")
+See WHO-CALLS for a description of the return value."
+  (declare (ignore class-name))
+  :not-implemented)
 
 ;;; Simpler variants.
 
@@ -941,11 +992,14 @@ output of CL:DESCRIBE."
      (:newline) (:newline)
      ,(with-output-to-string (desc) (describe object desc))))
 
+
 ;;; Utilities for inspector methods.
 ;;; 
+
 (defun label-value-line (label value &key (newline t))
   "Create a control list which prints \"LABEL: VALUE\" in the inspector.
 If NEWLINE is non-NIL a `(:newline)' is added to the result."
+  
   (list* (princ-to-string label) ": " `(:value ,value)
          (if newline '((:newline)) nil)))
 
@@ -989,9 +1043,8 @@ Can return nil if the thread no longer exists."
 
 (definterface thread-name (thread)
    "Return the name of THREAD.
-
-Thread names are be single-line strings and are meaningful to the
-user. They do not have to be unique."
+Thread names are short strings meaningful to the user. They do not
+have to be unique."
    (declare (ignore thread))
    "The One True Thread")
 
@@ -999,16 +1052,6 @@ user. They do not have to be unique."
    "Return a string describing THREAD's state."
    (declare (ignore thread))
    "")
-
-(definterface thread-description (thread)
-  "Return a string describing THREAD."
-  (declare (ignore thread))
-  "")
-
-(definterface set-thread-description (thread description)
-  "Set THREAD's description to DESCRIPTION."
-  (declare (ignore thread description))
-  "")
 
 (definterface thread-attributes (thread)
   "Return a plist of implementation-dependent attributes for THREAD"
@@ -1033,7 +1076,8 @@ but that thread may hold it more than once."
   0)
 
 (definterface all-threads ()
-  "Return a fresh list of all threads.")
+  "Return a fresh list of all threads."
+  '())
 
 (definterface thread-alive-p (thread)
   "Test if THREAD is termintated."
@@ -1043,7 +1087,9 @@ but that thread may hold it more than once."
   "Cause THREAD to execute FN.")
 
 (definterface kill-thread (thread)
-  "Kill THREAD."
+  "Terminate THREAD immediately.
+Don't execute unwind-protected sections, don't raise conditions.
+(Do not pass go, do not collect $200.)"
   (declare (ignore thread))
   nil)
 

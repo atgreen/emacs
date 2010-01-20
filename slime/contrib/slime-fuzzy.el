@@ -226,7 +226,6 @@ Complete listing of keybindings with *Fuzzy Completions*:
 		  (string prefix))))
     (slime-eval `(swank:fuzzy-completions ,prefix 
                                           ,(or default-package
-                                               (slime-find-buffer-package)
                                                (slime-current-package))
                   :limit ,slime-fuzzy-completion-limit
                   :time-limit-in-msec ,slime-fuzzy-completion-time-limit-in-msec))))
@@ -367,6 +366,7 @@ done."
         (add-hook 'window-configuration-change-hook
                   'slime-fuzzy-window-configuration-change))
       (slime-add-local-hook 'kill-buffer-hook 'slime-fuzzy-abort)
+      (set (make-local-variable 'cursor-type) nil)
       (setq buffer-quit-function 'slime-fuzzy-abort)) ; M-Esc Esc
     (when slime-fuzzy-completion-in-place
       ;; switch back to the original buffer

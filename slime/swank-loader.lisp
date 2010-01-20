@@ -62,11 +62,13 @@
                                     (lisp-implementation-version))
   #+(or cormanlisp scl sbcl ecl)       (lisp-implementation-version)
   #+lispworks (lisp-implementation-version)
-  #+allegro   (format nil
-                      "~A~A~A"
+  #+allegro   (format nil "~A~A~A~A"
                       excl::*common-lisp-version-number*
                       (if (eq 'h 'H) "A" "M")     ; ANSI vs MoDeRn
-                      (if (member :64bit *features*) "-64bit" ""))
+                      (if (member :64bit *features*) "-64bit" "")
+                      (excl:ics-target-case
+                       (:-ics "")
+                       (:+ics "-ics")))
   #+clisp     (let ((s (lisp-implementation-version)))
                 (subseq s 0 (position #\space s)))
   #+armedbear (lisp-implementation-version))
@@ -180,13 +182,14 @@ If LOAD is true, load the fasl file."
                            :defaults src-dir))
           names))
 
-(defvar *swank-files* `(swank-backend ,@*sysdep-files* swank))
+(defvar *swank-files* `(swank-backend ,@*sysdep-files* swank-match swank-rpc swank))
 
 (defvar *contribs* '(swank-c-p-c swank-arglists swank-fuzzy
                      swank-fancy-inspector
                      swank-presentations swank-presentation-streams
                      #+(or asdf sbcl) swank-asdf
                      swank-package-fu
+                     swank-hyperdoc
                      swank-sbcl-exts
                      )
   "List of names for contrib modules.")
@@ -224,7 +227,10 @@ If LOAD is true, load the fasl file."
 (defun setup ()
   (load-site-init-file *source-directory*)
   (load-user-init-file)
-  (eval `(pushnew 'compile-contribs ,(q "swank::*after-init-hook*")))
+  (when (#-clisp probe-file
+         #+clisp ext:probe-directory        
+         (contrib-dir *source-directory*))
+    (eval `(pushnew 'compile-contribs ,(q "swank::*after-init-hook*"))))
   (funcall (q "swank::init")))
 
 (defun init (&key delete reload load-contribs (setup t))
