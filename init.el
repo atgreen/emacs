@@ -38,6 +38,15 @@
 (add-hook 'kill-buffer-hook 'byte-compile-init-file)
 
 ;; -------------------------------------------------------------------------
+;; ---- Tom Tromey's ELPA --------------------------------------------------
+;; -------------------------------------------------------------------------
+
+(require 'package)
+(package-initialize)
+(add-to-list 'package-archives
+	     '("melpa" . "http://melpa.org/packages/") t)
+
+;; -------------------------------------------------------------------------
 ;; ---- set some load paths ------------------------------------------------
 ;; -------------------------------------------------------------------------
 
@@ -45,9 +54,34 @@
   (mapc #'(lambda (path)
 	    (add-to-list 'load-path
 			 (expand-file-name path "/home/green/.emacs.d")))
-	'("site-lisp" "lisp"))
+	'("site-lisp" "lisp" "override"))
 
   (require 'cl))
+
+(require 'use-package)
+
+;; -------------------------------------------------------------------------
+;; ---- BBDB ---------------------------------------------------------------
+;; -------------------------------------------------------------------------
+
+(use-package bbdb-com
+  :load-path "override/bbdb/lisp"
+  :commands bbdb-create
+  :bind ("M-B" . bbdb)
+  :config
+  (use-package osx-bbdb
+    :load-path "site-lisp/osx-bbdb"
+    :commands import-osx-contacts-to-bbdb)
+
+  (use-package bbdb-vcard
+    :disabled t
+    :load-path "site-lisp/bbdb-vcard")
+
+  (use-package bbdb-vcard-export
+    :disabled t)
+
+  (use-package bbdb-vcard-import
+	       :disabled t))
 
 ;; -------------------------------------------------------------------------
 ;; ---- add-change-log configuration ---------------------------------------
@@ -69,15 +103,6 @@
 
 (and (fboundp 'copyright-update)
      (add-hook 'write-file-hooks 'fp-copyright-update))
-
-;; -------------------------------------------------------------------------
-;; ---- Tom Tromey's ELPA --------------------------------------------------
-;; -------------------------------------------------------------------------
-
-(require 'package)
-(package-initialize)
-(add-to-list 'package-archives
-	     '("melpa" . "http://melpa.org/packages/") t)
 
 ;; -------------------------------------------------------------------------
 ;; ---- set up paperless mode ----------------------------------------------
@@ -242,6 +267,14 @@ Attendees:  ")))
 
 (add-hook 'text-mode-hook 'turn-on-orgtbl)
 
+
+;; -------------------------------------------------------------------------
+;; ---- Emacs hacking ------------------------------------------------------
+;; -------------------------------------------------------------------------
+
+(eval-after-load 'flycheck
+  '(flycheck-package-setup))
+
 ;; -------------------------------------------------------------------------
 ;; ---- User Interface and Miscelleneous Editing Tweaks --------------------
 ;; -------------------------------------------------------------------------
@@ -300,8 +333,13 @@ Attendees:  ")))
                               auto-mode-alist))
 
 ; Auto fill and spell when in text mode.
+(setq ispell-program-name "aspell")
+(setq ispell-dictionary "british")
 (add-hook 'text-mode-hook 'turn-on-auto-fill)
 (add-hook 'text-mode-hook 'flyspell-mode)
+
+(add-hook 'after-init-hook 'global-company-mode)
+(require 'company-statistics)
 
 ;; Makefile mode settings.
 (add-hook 'makefile-mode-hook (lambda ()
@@ -322,7 +360,7 @@ Attendees:  ")))
  '(org-agenda-files (quote ("~/todo.org")))
  '(package-selected-packages
    (quote
-    (magithub paperless company company-statistics org url magit jimb-patch erc)))
+    (use-package magithub paperless company company-statistics org url magit jimb-patch erc)))
  '(paperless-capture-directory "/home/green/TOL/CAPTURE")
  '(paperless-root-directory "/home/green/TOL"))
 

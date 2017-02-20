@@ -1,4 +1,0 @@
-(
- (:id "sha1:ac7feb949147490ee549b5b6c3ae7edd929ea335" :fingerprint "sha1:d2:1a:01:45:2b:5a:9b:06:10:69:46:93:0e:64:71:78:69:ff:7a:e0" :host "news.gmane.org:nntp" :conditions (:self-signed :unknown-ca :invalid))
- (:id "sha1:386adc29ea9f8f85b96e8978bad43e925f1ab750" :fingerprint "sha1:e8:1b:f0:4d:c3:20:2a:f7:d2:e2:c5:e0:6e:ca:c9:c4:8e:70:af:f9" :host "localhost:imap" :conditions (:self-signed :no-host-match :unknown-ca :invalid))
-)

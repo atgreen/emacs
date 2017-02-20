@@ -5,7 +5,7 @@
 
 ;;;### (autoloads nil nil ("magithub-cache.el" "magithub-ci.el" "magithub-core.el"
 ;;;;;;  "magithub-issue.el" "magithub-pkg.el" "magithub-proxy.el"
-;;;;;;  "magithub.el") (22698 25457 322531 223000))
+;;;;;;  "magithub.el") (22698 57869 669089 30000))
 
 ;;;***
 

@@ -1,5 +1,7 @@
 auto-saves-list
 *.elc
+bbdb
+eshell
 private.el
 network-security.data
 *~

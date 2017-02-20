@@ -3,8 +3,8 @@
 ;;; Code:
 (add-to-list 'load-path (directory-file-name (or (file-name-directory #$) (car load-path))))
 
-;;;### (autoloads nil "paperless" "paperless.el" (22698 25449 537646
-;;;;;;  970000))
+;;;### (autoloads nil "paperless" "paperless.el" (22698 57943 574860
+;;;;;;  965000))
 ;;; Generated autoloads from paperless.el
 
 (autoload 'paperless "paperless" "\
