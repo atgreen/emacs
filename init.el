@@ -222,20 +222,24 @@
 (setq remember-annotation-functions '(org-remember-annotation))
 (setq remember-handler-functions '(org-remember-handler))
 (add-hook 'remember-mode-hook 'org-remember-apply-template)
-;(org-remember-insinuate)
-(setq org-directory "~/orgfiles/")
-(setq org-default-notes-file (concat org-directory "notes.org"))
-(define-key global-map "\C-cr" 'org-remember)
 
-(setq org-remember-templates
-      '(("Todo" ?t "* TODO %?\n  %i\n  %a"  
-	 (concat org-directory "TODO.org") "Tasks")
-        ("Journal" ?j "* %U %?\n\n  %i\n  %a" 
-	 (concat org-directory "JOURNAL.org"))
-         ("Idea" ?i "* %^{Title}\n  %i\n  %a" 
-	 (concat org-directory "JOURNAL.org") "New Ideas")))
+
+(setq org-default-notes-file "/home/green/TOL/notes.org")
+(define-key global-map "\C-cc" 'org-capture)
+(define-key global-map "\C-ca" 'org-agenda)
+(define-key global-map (kbd "<f9>") 'gnorb-org-contact-link)
+
+(setq org-capture-templates
+      '(("t" "Todo" entry (file+headline "/home/green/TOL/notes.org" "Tasks")
+             "* TODO %?\n  %i\n  %a")
+	("m" "Meeting Notes" entry
+	 (file+datetree "/home/green/TOL/Work/Red_Hat/journal.org")
+	 "* Meeting Notes %^g %?
+Added: %U
+Attendees:  ")))
 
 ; Org tables rock!  Use them in regular text files.
+
 (add-hook 'text-mode-hook 'turn-on-orgtbl)
 
 ;; -------------------------------------------------------------------------
@@ -318,7 +322,10 @@
  '(org-agenda-files (quote ("~/todo.org")))
  '(package-selected-packages
    (quote
-    (magithub paperless company company-statistics org url magit jimb-patch erc))))
+    (magithub paperless company company-statistics org url magit jimb-patch erc)))
+ '(paperless-capture-directory "/home/green/TOL/CAPTURE")
+ '(paperless-root-directory "/home/green/TOL"))
+
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
