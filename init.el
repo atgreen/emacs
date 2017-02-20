@@ -1,7 +1,7 @@
 ;; =========================================================================
 ;; Anthony Green's GNU Emacs configuration file.
 ;;
-;; Copyright (C) 2009  Anthony Green <green@moxielogic.com>
+;; Copyright (C) 2009, 2017  Anthony Green <green@moxielogic.com>
 ;;
 ;; This file is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published
@@ -38,14 +38,16 @@
 (add-hook 'kill-buffer-hook 'byte-compile-init-file)
 
 ;; -------------------------------------------------------------------------
-;; ---- Desktop save and restore -------------------------------------------
+;; ---- set some load paths ------------------------------------------------
 ;; -------------------------------------------------------------------------
 
-(require 'desktop)
-(desktop-save-mode t)
-(setq history-lenth 1500)
-(add-to-list 'desktop-globals-to-save 'file-name-history)
-(desktop-read)
+(eval-and-compile
+  (mapc #'(lambda (path)
+	    (add-to-list 'load-path
+			 (expand-file-name path "/home/green/.emacs.d")))
+	'("site-lisp" "lisp"))
+
+  (require 'cl))
 
 ;; -------------------------------------------------------------------------
 ;; ---- add-change-log configuration ---------------------------------------
@@ -72,10 +74,18 @@
 ;; ---- Tom Tromey's ELPA --------------------------------------------------
 ;; -------------------------------------------------------------------------
 
-(when
-    (load
-     (expand-file-name "~/.emacs.d/elpa/package.el"))
-  (package-initialize))
+(require 'package)
+(package-initialize)
+(add-to-list 'package-archives
+	     '("melpa" . "http://melpa.org/packages/") t)
+
+;; -------------------------------------------------------------------------
+;; ---- set up paperless mode ----------------------------------------------
+;; -------------------------------------------------------------------------
+
+(require 'paperless)
+(setq *paperless-capture-dir* "/home/green/TOL/CAPTURE")
+(setq *paperless-root-dir* "/home/green/TOL")
 
 ;; -------------------------------------------------------------------------
 ;; ---- Verilog Mode -------------------------------------------------------
@@ -107,10 +117,11 @@
 ;; ---- SLIME --------------------------------------------------------------
 ;; -------------------------------------------------------------------------
 
-(add-to-list 'load-path "~/.emacs.d/slime/")  ; my SLIME directory
-(setq inferior-lisp-program "sbcl")           ; my Lisp system
+(setq inferior-lisp-program "/usr/bin/sbcl")
+(add-to-list 'load-path "~/quicklisp/dists/quicklisp/software/slime-v2.18")
+(add-to-list 'load-path "~/quicklisp/dists/quicklisp/software/slime-v2.18/contrib")
 (require 'slime)
-(slime-setup)
+(slime-setup '(slime-asdf))
 
 ;; -------------------------------------------------------------------------
 ;; ---- Linux Kernel Hacking -----------------------------------------------
@@ -211,7 +222,7 @@
 (setq remember-annotation-functions '(org-remember-annotation))
 (setq remember-handler-functions '(org-remember-handler))
 (add-hook 'remember-mode-hook 'org-remember-apply-template)
-(org-remember-insinuate)
+;(org-remember-insinuate)
 (setq org-directory "~/orgfiles/")
 (setq org-default-notes-file (concat org-directory "notes.org"))
 (define-key global-map "\C-cr" 'org-remember)
@@ -230,6 +241,8 @@
 ;; -------------------------------------------------------------------------
 ;; ---- User Interface and Miscelleneous Editing Tweaks --------------------
 ;; -------------------------------------------------------------------------
+
+(require 'powerline)
 
 ; All files should end with a newline.
 (setq require-final-newline t) 
@@ -298,16 +311,19 @@
 (setq makefile-backslash-column 0)
 (setq makefile-backslash-align nil)
 (custom-set-variables
-  ;; custom-set-variables was added by Custom.
-  ;; If you edit it by hand, you could mess it up, so be careful.
-  ;; Your init file should contain only one such instance.
-  ;; If there is more than one, they won't work right.
- '(org-agenda-files (quote ("~/todo.org"))))
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(org-agenda-files (quote ("~/todo.org")))
+ '(package-selected-packages
+   (quote
+    (magithub paperless company company-statistics org url magit jimb-patch erc))))
 (custom-set-faces
-  ;; custom-set-faces was added by Custom.
-  ;; If you edit it by hand, you could mess it up, so be careful.
-  ;; Your init file should contain only one such instance.
-  ;; If there is more than one, they won't work right.
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
  )
 
 ;; default to better frame titles
