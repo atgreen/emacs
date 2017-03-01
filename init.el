@@ -61,6 +61,18 @@
 (require 'use-package)
 
 ;; -------------------------------------------------------------------------
+;; ---- Enable file encryption/decryption ----------------------------------
+;; -------------------------------------------------------------------------
+
+(require 'epa-file)
+(epa-file-enable)
+
+(require 'org-crypt)
+(org-crypt-use-before-save-magic)
+(setq org-tags-exclude-from-inheritance (quote ("crypt")))
+(setq org-crypt-key nil)
+     
+;; -------------------------------------------------------------------------
 ;; ---- BBDB ---------------------------------------------------------------
 ;; -------------------------------------------------------------------------
 
@@ -69,9 +81,6 @@
   :commands bbdb-create
   :bind ("M-B" . bbdb)
   :config
-  (use-package osx-bbdb
-    :load-path "site-lisp/osx-bbdb"
-    :commands import-osx-contacts-to-bbdb)
 
   (use-package bbdb-vcard
     :disabled t
@@ -82,6 +91,19 @@
 
   (use-package bbdb-vcard-import
 	       :disabled t))
+(require 'bbdb)
+
+;; -------------------------------------------------------------------------
+;; ---- GNUS ---------------------------------------------------------------
+;; -------------------------------------------------------------------------
+
+(use-package dot-gnus
+  :load-path ("override/gnus/lisp" "override/gnus/contrib")
+  :bind (("M-G"   . switch-to-gnus)
+         ("C-x m" . compose-mail))
+  :init
+  (setq gnus-init-file (expand-file-name "dot-gnus" user-emacs-directory)
+        gnus-home-directory "~/Messages/Gnus/"))
 
 ;; -------------------------------------------------------------------------
 ;; ---- add-change-log configuration ---------------------------------------
@@ -249,13 +271,13 @@
 (add-hook 'remember-mode-hook 'org-remember-apply-template)
 
 
-(setq org-default-notes-file "/home/green/TOL/notes.org")
+(setq org-default-notes-file "/home/green/Dropbox/org/notes.org")
 (define-key global-map "\C-cc" 'org-capture)
 (define-key global-map "\C-ca" 'org-agenda)
 (define-key global-map (kbd "<f9>") 'gnorb-org-contact-link)
 
 (setq org-capture-templates
-      '(("t" "Todo" entry (file+headline "/home/green/TOL/notes.org" "Tasks")
+      '(("t" "Todo" entry (file+headline "/home/green/Dropbox/org/notes.org" "Tasks")
              "* TODO %?\n  %i\n  %a")
 	("m" "Meeting Notes" entry
 	 (file+datetree "/home/green/TOL/Work/Red_Hat/journal.org")
@@ -279,7 +301,15 @@ Attendees:  ")))
 ;; ---- User Interface and Miscelleneous Editing Tweaks --------------------
 ;; -------------------------------------------------------------------------
 
+      
+;; Magit rules!
+(global-set-key (kbd "C-x g") 'magit-status)
+
 (require 'powerline)
+
+(defun switch-full-screen ()
+  (interactive)
+  (shell-command "wmctrl -r :ACTIVE: -btoggle,maximized_vert,maximized_horz"))
 
 ; All files should end with a newline.
 (setq require-final-newline t) 
@@ -357,10 +387,10 @@ Attendees:  ")))
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(org-agenda-files (quote ("~/todo.org")))
+ '(org-agenda-files (quote ("/home/green/Dropbox/org/notes.org")))
  '(package-selected-packages
    (quote
-    (use-package magithub paperless company company-statistics org url magit jimb-patch erc)))
+    (org-link-travis travis git-timemachine use-package magithub paperless company company-statistics org url magit jimb-patch erc)))
  '(paperless-capture-directory "/home/green/TOL/CAPTURE")
  '(paperless-root-directory "/home/green/TOL"))
 
@@ -378,3 +408,37 @@ Attendees:  ")))
 ;; default to unified diffs
 (setq diff-switches "-u")
 
+
+(define-minor-mode sensitive-mode
+  "For sensitive files like password lists.
+It disables backup creation and auto saving.
+
+With no argument, this command toggles the mode.
+Non-null prefix argument turns on the mode.
+Null prefix argument turns off the mode."
+  ;; The initial value.
+  nil
+  ;; The indicator for the mode line.
+  " Sensitive"
+  ;; The minor mode bindings.
+  nil
+  (if (symbol-value sensitive-mode)
+      (progn
+	;; disable backups
+	(set (make-local-variable 'backup-inhibited) t)	
+	;; disable auto-save
+	(if auto-save-default
+	    (auto-save-mode -1)))
+    ;resort to default value of backup-inhibited
+    (kill-local-variable 'backup-inhibited)
+    ;resort to default auto save setting
+    (if auto-save-default
+	(auto-save-mode 1))))
+
+(setq auto-mode-alist
+      (append '(("\\.gpg$" . sensitive-mode))
+	      auto-mode-alist))
+
+
+(require 'org-link-travis)
+(setq org-link-travis/user-name "atgreen")
