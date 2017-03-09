@@ -131,6 +131,8 @@
 ;; -------------------------------------------------------------------------
 
 (require 'paperless)
+(require 'org-paperless)
+
 (setq *paperless-capture-dir* "/home/green/TOL/CAPTURE")
 (setq *paperless-root-dir* "/home/green/TOL")
 
@@ -305,6 +307,11 @@ Attendees:  ")))
 ;; Magit rules!
 (global-set-key (kbd "C-x g") 'magit-status)
 
+(global-set-key (kbd "C-c o") 
+                (lambda () (interactive) (find-file "~/Dropbox/org/notes.org")))
+(global-set-key (kbd "C-c j") 
+                (lambda () (interactive) (find-file "~/TOL/Work/Red_Hat/journal.org")))
+
 (require 'powerline)
 
 (defun switch-full-screen ()
@@ -390,7 +397,7 @@ Attendees:  ")))
  '(org-agenda-files (quote ("/home/green/Dropbox/org/notes.org")))
  '(package-selected-packages
    (quote
-    (org-link-travis travis git-timemachine use-package magithub paperless company company-statistics org url magit jimb-patch erc)))
+    (simple-mpc org-link-travis travis git-timemachine use-package magithub paperless company company-statistics org url magit jimb-patch erc)))
  '(paperless-capture-directory "/home/green/TOL/CAPTURE")
  '(paperless-root-directory "/home/green/TOL"))
 
@@ -442,3 +449,16 @@ Null prefix argument turns off the mode."
 
 (require 'org-link-travis)
 (setq org-link-travis/user-name "atgreen")
+
+
+;;; org bulk action to schedule a task for today
+(defun org-agenda-reschedule-to-today ()
+  (interactive)
+  (cl-letf
+      (((symbol-function 'org-read-date)
+	(lambda (&rest rest) (current-time))))
+    (call-interactively 'org-agenda-schedule)))
+;;; bind that to 'T' in the bulk action menu
+(setq-default org-agenda-bulk-custom-functions
+	      '((84 org-agenda-reschedule-to-today)))
+
