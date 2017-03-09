@@ -5,4 +5,5 @@ eshell
 private.el
 network-security.data
 *~
+tramp
 
