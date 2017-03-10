@@ -394,10 +394,13 @@ Attendees:  ")))
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
+ '(elfeed-feeds
+   (quote
+    ("http://tromey.com/blog/?feed=rss2" "https://www.ansible.com/blog/rss.xml" "http://moxielogic.github.io/blog/feeds/all.atom.xml" "http://planet.lisp.org/rss20.xml" "http://planet.emacsen.org/atom.xml" "https://developers.redhat.com/blog/feed/" "http://blog.quicklisp.org" "http://moxielogic.github.io/blog/feeds/all.atom.xml" "http://moxielogic.org/blog")))
  '(org-agenda-files (quote ("/home/green/Dropbox/org/notes.org")))
  '(package-selected-packages
    (quote
-    (simple-mpc org-link-travis travis git-timemachine use-package magithub paperless company company-statistics org url magit jimb-patch erc)))
+    (elfeed elfeed-goodies elfeed-org elfeed-web simple-mpc org-link-travis travis git-timemachine use-package magithub paperless company company-statistics org url magit jimb-patch erc)))
  '(paperless-capture-directory "/home/green/TOL/CAPTURE")
  '(paperless-root-directory "/home/green/TOL"))
 
@@ -461,4 +464,5 @@ Null prefix argument turns off the mode."
 ;;; bind that to 'T' in the bulk action menu
 (setq-default org-agenda-bulk-custom-functions
 	      '((84 org-agenda-reschedule-to-today)))
+
 
