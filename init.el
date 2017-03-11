@@ -18,10 +18,18 @@
 ;; =========================================================================
 
 ;; -------------------------------------------------------------------------
+;; ---- Enable file encryption/decryption ----------------------------------
+;; -------------------------------------------------------------------------
+
+(require 'epa-file)
+(epa-file-enable)
+
+;; -------------------------------------------------------------------------
 ;; ---- Load private settings (passwords, etc) -----------------------------
 ;; -------------------------------------------------------------------------
 
-(load "~/.emacs.d/private.el")
+(when (file-exists-p "~/.emacs.d/private.el.gpg")
+  (load "~/.emacs.d/private.el.gpg"))
 
 ;; -------------------------------------------------------------------------
 ;; ---- Auto byte-compile this file ----------------------------------------
@@ -38,7 +46,7 @@
 (add-hook 'kill-buffer-hook 'byte-compile-init-file)
 
 ;; -------------------------------------------------------------------------
-;; ---- Tom Tromey's ELPA --------------------------------------------------
+;; ---- Tom Tromey's amazing ELPA ------------------------------------------
 ;; -------------------------------------------------------------------------
 
 (require 'package)
@@ -47,7 +55,7 @@
 	     '("melpa" . "http://melpa.org/packages/") t)
 
 ;; -------------------------------------------------------------------------
-;; ---- set some load paths ------------------------------------------------
+;; ---- Set some load paths and use use-package ----------------------------
 ;; -------------------------------------------------------------------------
 
 (eval-and-compile
@@ -60,18 +68,6 @@
 
 (require 'use-package)
 
-;; -------------------------------------------------------------------------
-;; ---- Enable file encryption/decryption ----------------------------------
-;; -------------------------------------------------------------------------
-
-(require 'epa-file)
-(epa-file-enable)
-
-(require 'org-crypt)
-(org-crypt-use-before-save-magic)
-(setq org-tags-exclude-from-inheritance (quote ("crypt")))
-(setq org-crypt-key nil)
-     
 ;; -------------------------------------------------------------------------
 ;; ---- BBDB ---------------------------------------------------------------
 ;; -------------------------------------------------------------------------
@@ -125,16 +121,6 @@
 
 (and (fboundp 'copyright-update)
      (add-hook 'write-file-hooks 'fp-copyright-update))
-
-;; -------------------------------------------------------------------------
-;; ---- set up paperless mode ----------------------------------------------
-;; -------------------------------------------------------------------------
-
-(require 'paperless)
-(require 'org-paperless)
-
-(setq *paperless-capture-dir* "/home/green/TOL/CAPTURE")
-(setq *paperless-root-dir* "/home/green/TOL")
 
 ;; -------------------------------------------------------------------------
 ;; ---- Verilog Mode -------------------------------------------------------
@@ -267,6 +253,11 @@
 ;; ---- OrgMode Tweaks -----------------------------------------------------
 ;; -------------------------------------------------------------------------
 
+(require 'org-crypt)
+(org-crypt-use-before-save-magic)
+(setq org-tags-exclude-from-inheritance (quote ("crypt")))
+(setq org-crypt-key nil)
+     
 (require 'remember)
 (setq remember-annotation-functions '(org-remember-annotation))
 (setq remember-handler-functions '(org-remember-handler))
@@ -291,6 +282,26 @@ Attendees:  ")))
 
 (add-hook 'text-mode-hook 'turn-on-orgtbl)
 
+;; -------------------------------------------------------------------------
+;; ---- Set up paperless mode ----------------------------------------------
+;; -------------------------------------------------------------------------
+
+(require 'paperless)
+(require 'org-paperless)
+
+(setq *paperless-capture-dir* "/home/green/TOL/CAPTURE")
+(setq *paperless-root-dir* "/home/green/TOL")
+
+;; -------------------------------------------------------------------------
+;; ---- My RSS reader is elfeed --------------------------------------------
+;; -------------------------------------------------------------------------
+
+(require 'elfeed)
+(defun elfeed-mark-all-as-read ()
+  (interactive)
+  (mark-whole-buffer)
+  (elfeed-search-untag-all-unread))
+(define-key elfeed-search-mode-map (kbd "R") 'elfeed-mark-all-as-read)
 
 ;; -------------------------------------------------------------------------
 ;; ---- Emacs hacking ------------------------------------------------------
@@ -302,7 +313,6 @@ Attendees:  ")))
 ;; -------------------------------------------------------------------------
 ;; ---- User Interface and Miscelleneous Editing Tweaks --------------------
 ;; -------------------------------------------------------------------------
-
       
 ;; Magit rules!
 (global-set-key (kbd "C-x g") 'magit-status)
@@ -396,7 +406,7 @@ Attendees:  ")))
  ;; If there is more than one, they won't work right.
  '(elfeed-feeds
    (quote
-    ("http://tromey.com/blog/?feed=rss2" "https://www.ansible.com/blog/rss.xml" "http://moxielogic.github.io/blog/feeds/all.atom.xml" "http://planet.lisp.org/rss20.xml" "http://planet.emacsen.org/atom.xml" "https://developers.redhat.com/blog/feed/" "http://blog.quicklisp.org" "http://moxielogic.github.io/blog/feeds/all.atom.xml" "http://moxielogic.org/blog")))
+    ("http://planet.classpath.org/rss20.xml" "https://www.librecores.org/planet/atom.xml" "http://mobileblog.redhat.com/feed/" "http://middlewareblog.redhat.com/feed/" "http://cloudformsblog.redhat.com/feed/" "http://verticalindustriesblog.redhat.com/feed/" "http://servicesblog.redhat.com/feed/" "http://redhatstorage.redhat.com/feed/" "http://eventsblog.redhat.com/feed/" "https://www.redhat.com/en/rss/blog" "https://www.ansible.com/blog/rss.xml" "http://community.redhat.com/blog/feed.xml" "https://access.redhat.com/blogs/766093/feed" "https://blog.openshift.com/feed/" "http://rhelblog.redhat.com/feed/" "https://allthingsopen.com/feed/" "https://allthingsopen.com/feed/" "http://www.marcoberube.com/rss" "http://tromey.com/blog/?feed=rss2" "https://www.ansible.com/blog/rss.xml" "http://moxielogic.github.io/blog/feeds/all.atom.xml" "http://planet.lisp.org/rss20.xml" "http://planet.emacsen.org/atom.xml" "https://developers.redhat.com/blog/feed/" "http://blog.quicklisp.org" "http://moxielogic.github.io/blog/feeds/all.atom.xml" "http://moxielogic.org/blog")))
  '(org-agenda-files (quote ("/home/green/Dropbox/org/notes.org")))
  '(package-selected-packages
    (quote
@@ -448,11 +458,6 @@ Null prefix argument turns off the mode."
 (setq auto-mode-alist
       (append '(("\\.gpg$" . sensitive-mode))
 	      auto-mode-alist))
-
-
-(require 'org-link-travis)
-(setq org-link-travis/user-name "atgreen")
-
 
 ;;; org bulk action to schedule a task for today
 (defun org-agenda-reschedule-to-today ()
