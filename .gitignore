@@ -2,6 +2,7 @@ auto-saves-list
 *.elc
 bbdb
 eshell
+emms
 private.el
 network-security.data
 *~

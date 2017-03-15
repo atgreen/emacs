@@ -50,13 +50,24 @@
 ;; -------------------------------------------------------------------------
 
 (require 'package)
+(setq package-archives
+      '(("melpa-stable" . "https://stable.melpa.org/packages/")
+        ("marmalade" . "http://marmalade-repo.org/packages/")
+        ("melpa" . "https://melpa.org/packages/")
+        ("elpa" . "https://elpa.gnu.org/packages/")))
+(setq package-enable-at-startup nil)
 (package-initialize)
-(add-to-list 'package-archives
-	     '("melpa" . "http://melpa.org/packages/") t)
 
 ;; -------------------------------------------------------------------------
 ;; ---- Set some load paths and use use-package ----------------------------
 ;; -------------------------------------------------------------------------
+
+(unless (package-installed-p 'use-package)
+  (package-refresh-contents)
+  (package-install 'use-package))
+
+(eval-when-compile
+  (require 'use-package))
 
 (eval-and-compile
   (mapc #'(lambda (path)
@@ -65,8 +76,6 @@
 	'("site-lisp" "lisp" "override"))
 
   (require 'cl))
-
-(require 'use-package)
 
 ;; -------------------------------------------------------------------------
 ;; ---- BBDB ---------------------------------------------------------------
@@ -406,11 +415,11 @@ Attendees:  ")))
  ;; If there is more than one, they won't work right.
  '(elfeed-feeds
    (quote
-    ("http://planet.classpath.org/rss20.xml" "https://www.librecores.org/planet/atom.xml" "http://mobileblog.redhat.com/feed/" "http://middlewareblog.redhat.com/feed/" "http://cloudformsblog.redhat.com/feed/" "http://verticalindustriesblog.redhat.com/feed/" "http://servicesblog.redhat.com/feed/" "http://redhatstorage.redhat.com/feed/" "http://eventsblog.redhat.com/feed/" "https://www.redhat.com/en/rss/blog" "https://www.ansible.com/blog/rss.xml" "http://community.redhat.com/blog/feed.xml" "https://access.redhat.com/blogs/766093/feed" "https://blog.openshift.com/feed/" "http://rhelblog.redhat.com/feed/" "https://allthingsopen.com/feed/" "https://allthingsopen.com/feed/" "http://www.marcoberube.com/rss" "http://tromey.com/blog/?feed=rss2" "https://www.ansible.com/blog/rss.xml" "http://moxielogic.github.io/blog/feeds/all.atom.xml" "http://planet.lisp.org/rss20.xml" "http://planet.emacsen.org/atom.xml" "https://developers.redhat.com/blog/feed/" "http://blog.quicklisp.org" "http://moxielogic.github.io/blog/feeds/all.atom.xml" "http://moxielogic.org/blog")))
+    ("http://reddit.com/r/toronto.rss" "reddit.com/r/redhat.rss" "http://www.reddit.com/r/lisp.rss" "http://reddit.com/r/emacs.rss" "http://planet.classpath.org/rss20.xml" "https://www.librecores.org/planet/atom.xml" "http://mobileblog.redhat.com/feed/" "http://middlewareblog.redhat.com/feed/" "http://cloudformsblog.redhat.com/feed/" "http://verticalindustriesblog.redhat.com/feed/" "http://servicesblog.redhat.com/feed/" "http://redhatstorage.redhat.com/feed/" "http://eventsblog.redhat.com/feed/" "https://www.redhat.com/en/rss/blog" "https://www.ansible.com/blog/rss.xml" "http://community.redhat.com/blog/feed.xml" "https://access.redhat.com/blogs/766093/feed" "https://blog.openshift.com/feed/" "http://rhelblog.redhat.com/feed/" "https://allthingsopen.com/feed/" "https://allthingsopen.com/feed/" "http://www.marcoberube.com/rss" "http://tromey.com/blog/?feed=rss2" "https://www.ansible.com/blog/rss.xml" "http://moxielogic.github.io/blog/feeds/all.atom.xml" "http://planet.lisp.org/rss20.xml" "http://planet.emacsen.org/atom.xml" "https://developers.redhat.com/blog/feed/" "http://blog.quicklisp.org" "http://moxielogic.github.io/blog/feeds/all.atom.xml" "http://moxielogic.org/blog")))
  '(org-agenda-files (quote ("/home/green/Dropbox/org/notes.org")))
  '(package-selected-packages
    (quote
-    (elfeed elfeed-goodies elfeed-org elfeed-web simple-mpc org-link-travis travis git-timemachine use-package magithub paperless company company-statistics org url magit jimb-patch erc)))
+    (emms color-theme-sanityinc-solarized elfeed elfeed-goodies elfeed-org elfeed-web simple-mpc org-link-travis travis git-timemachine use-package magithub paperless company company-statistics org url magit jimb-patch erc)))
  '(paperless-capture-directory "/home/green/TOL/CAPTURE")
  '(paperless-root-directory "/home/green/TOL"))
 
@@ -469,5 +478,51 @@ Null prefix argument turns off the mode."
 ;;; bind that to 'T' in the bulk action menu
 (setq-default org-agenda-bulk-custom-functions
 	      '((84 org-agenda-reschedule-to-today)))
+
+
+;; (use-package solarized-theme
+;;   :ensure t
+;;   :pin melpa-stable
+;;   :init
+;;   (setq solarized-distinct-fringe-background t
+;;         solarized-use-variable-pitch nil
+;;         solarized-high-contrast-mode-line t
+;;         x-underline-at-descent-line t)
+;;   :config
+;;   (load-theme 'solarized-light)
+;;   (load-theme 'solarized-dark))
+
+(require 'color-theme)
+(color-theme-initialize)
+(require 'color-theme-solarized)
+(color-theme-solarized)
+
+
+(require 'emms-setup)
+(require 'emms-player-mpd)
+(add-to-list 'emms-info-functions 'emms-info-mpd)
+(add-to-list 'emms-player-list 'emms-player-mpd)
+(emms-standard)
+(emms-default-players)
+
+; Global bindings to move through playlist and pause
+(define-key global-map (kbd "\C-c <right>") 'emms-player-mpd-next)
+(define-key global-map (kbd "\C-c <left>") 'emms-player-mpd-previous)
+(define-key global-map (kbd "\C-c <down>") 'emms-player-mpd-pause)
+
+;; ---------------------
+;; org capture in elfeed
+;; ---------------------
+(defun private/org-elfeed-entry-store-link ()
+  (when elfeed-show-entry
+    (let* ((link (elfeed-entry-link elfeed-show-entry))
+           (title (elfeed-entry-title elfeed-show-entry)))
+      (org-store-link-props
+       :link link
+       :description title)
+      )))
+
+(add-hook 'org-store-link-functions
+          'private/org-elfeed-entry-store-link)
 
 
